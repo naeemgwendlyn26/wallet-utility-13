@@ -1,51 +1,38 @@
-"""Utility helper functions for crypto wallet operations."""
+import hashlib
+import base58
 
-from typing import Optional, Dict, Any
+def validate_bitcoin_address(address: str) -> bool:
+    """Validate a Bitcoin legacy address using base58 checksum."""
+    if not isinstance(address, str) or len(address) < 26 or len(address) > 35:
+        return False
+    
+    try:
+        decoded = base58.b58decode(address)
+        if len(decoded) != 25:
+            return False
+        
+        payload = decoded[:-4]
+        checksum = decoded[-4:]
+        calculated_checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+        
+        return checksum == calculated_checksum
+    except Exception:
+        return False
 
+def satoshis_to_btc(satoshis: int) -> float:
+    """Convert satoshis to whole bitcoins."""
+    if not isinstance(satoshis, int):
+        raise TypeError("Satoshis must be an integer")
+    return satoshis / 100000000.0
 
-def format_wei_to_ether(wei_amount: int) -> float:
-    """Convert wei integer to ether float representation.
+def btc_to_satoshis(btc: float) -> int:
+    """Convert whole bitcoins to satoshis."""
+    if not isinstance(btc, (int, float)):
+        raise TypeError("BTC amount must be numeric")
+    return int(round(btc * 100000000))
 
-    Args:
-        wei_amount: Amount in wei as an integer.
-
-    Returns:
-        Equivalent amount in ether as a float.
-    """
-    if wei_amount < 0:
-        raise ValueError("Wei amount cannot be negative")
-    return wei_amount / 10**18
-
-
-def sanitize_address(wallet_address: str) -> str:
-    """Validate and normalize a cryptocurrency wallet address.
-
-    Args:
-        wallet_address: Raw wallet address string.
-
-    Returns:
-        Normalized lowercase address string.
-    """
-    cleaned = wallet_address.strip().lower()
-    if not cleaned.startswith("0x") or len(cleaned) != 42:
-        raise ValueError("Invalid Ethereum address format")
-    return cleaned
-
-
-def build_tx_payload(to_address: str, value_wei: int, gas_limit: int = 21000) -> Dict[str, Any]:
-    """Construct a standard transaction payload dictionary.
-
-    Args:
-        to_address: Recipient wallet address.
-        value_wei: Amount to transfer in wei.
-        gas_limit: Maximum gas units allowed for the transaction.
-
-    Returns:
-        Dictionary containing the formatted transaction parameters.
-    """
-    recipient = sanitize_address(to_address)
-    return {
-        "to": recipient,
-        "value": value_wei,
-        "gas": gas_limit,
-    }
+def mask_wallet_address(address: str) -> str:
+    """Mask a wallet address for safe logging display."""
+    if not isinstance(address, str) or len(address) < 10:
+        return "***"
+    return f"{address[:6]}...{address[-4:]}"
