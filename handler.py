@@ -1,63 +1,47 @@
 import json
-from typing import Dict, List, Any
+from typing import Dict, Any, Optional
 
-class WalletHandler:
-    def __init__(self, address: str, initial_balance: float = 0.0) -> None:
-        self.address = address
-        self.balance = initial_balance
-        self.transactions: List[Dict[str, Any]] = []
-
-    def process_transaction(self, tx_data: Dict[str, Any]) -> bool:
-        if not self._is_valid_tx(tx_data):
-            return False
-        if tx_data.get('from') == self.address:
-            self.balance -= tx_data.get('amount', 0)
-        elif tx_data.get('to') == self.address:
-            self.balance += tx_data.get('amount', 0)
-        self.transactions.append(tx_data)
-        return True
-
-    def _is_valid_tx(self, tx: Dict[str, Any]) -> bool:
-        required = {'from', 'to', 'amount', 'timestamp'}
-        if not required.issubset(tx.keys()):
-            return False
-        try:
-            amount = float(tx['amount'])
-            if amount <= 0:
-                return False
-        except (ValueError, TypeError):
-            return False
-        return True
-
-    def get_transaction_history(self) -> List[Dict[str, Any]]:
-        return list(self.transactions)
-
-    def save_to_file(self, filepath: str) -> None:
-        data = {
-            'address': self.address,
-            'balance': self.balance,
-            'transactions': self.transactions
+def parse_crypto_payload(raw_data: str) -> Optional[Dict[str, Any]]:
+    """
+    Parses incoming raw JSON payload from crypto exchange WebSockets.
+    Validates basic structure and extracts transaction details.
+    """
+    try:
+        parsed = json.loads(raw_data)
+        
+        # Ensure the payload contains essential crypto transaction fields
+        if not isinstance(parsed, dict):
+            return None
+            
+        required_fields = {"txid", "amount", "currency", "wallet_address"}
+        if not required_fields.issubset(parsed.keys()):
+            return None
+            
+        # Normalize data types
+        transaction = {
+            "txid": str(parsed["txid"].strip()),
+            "amount": float(parsed["amount"]),
+            "currency": str(parsed["currency"].upper()),
+            "wallet_address": str(parsed["wallet_address"].strip())
         }
-        with open(filepath, 'w') as f:
-            json.dump(data, f, indent=2)
+        
+        # Basic sanity check for amounts
+        if transaction["amount"] <= 0:
+            return None
+            
+        return transaction
+        
+    except (json.JSONDecodeError, ValueError, TypeError):
+        # Return None on any parsing or casting failure
+        return None
 
-    def load_from_file(self, filepath: str) -> bool:
-        try:
-            with open(filepath, 'r') as f:
-                data = json.load(f)
-            self.address = data['address']
-            self.balance = data.get('balance', 0.0)
-            self.transactions = data.get('transactions', [])
-            return True
-        except Exception:
-            return False
-
-    def get_balance(self) -> float:
-        return self.balance
-
-if __name__ == '__main__':
-    wh = WalletHandler('0xabc123')
-    tx = {'from': '0xabc123', 'to': '0xdef456', 'amount': 5.0, 'timestamp': 'now'}
-    wh.process_transaction(tx)
-    print(wh.get_balance())
-    wh.save_to_file('wallet.json')
+def format_wallet_response(status: str, data: Dict[str, Any]) -> str:
+    """
+    Formats outgoing response payload for wallet utility operations.
+    """
+    response_envelope = {
+        "status": status,
+        "payload": data,
+        "utility": "wallet-utility-13"
+    }
+    return json.dumps(response_envelope)
