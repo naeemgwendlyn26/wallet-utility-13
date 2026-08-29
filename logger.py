@@ -1,27 +1,35 @@
+"""Logger module for wallet-utility with rotation."""
+
 import logging
-import os
-from logging.handlers import RotatingFileHandler
+import logging.handlers
 
-def setup_logger(log_file='wallet_utility.log', max_bytes=5*1024*1024, backup_count=5):
-    # Create a logger
-    logger = logging.getLogger('wallet_utility')
-    logger.setLevel(logging.DEBUG)  # Set log level
+from pathlib import Path
 
-    # Create a rotating file handler
-    if not os.path.exists(os.path.dirname(log_file)):
-        os.makedirs(os.path.dirname(log_file))
-    handler = RotatingFileHandler(log_file, maxBytes=max_bytes, backupCount=backup_count)
-    handler.setLevel(logging.DEBUG)
-
-    # Create a formatter and set it for the handler
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-
-    # Add the handler to the logger
-    logger.addHandler(handler)
+def get_logger(name: str = "wallet_utility", level: int = logging.INFO) -> logging.Logger:
+    """Return configured logger using rotating file handler."""
+    logger = logging.getLogger(name)
+    if logger.hasHandlers():
+        return logger
+    logger.setLevel(level)
+    log_dir = Path("logs")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / f"{name}.log"
+    file_handler = logging.handlers.RotatingFileHandler(
+        filename=str(log_file),
+        maxBytes=10 * 1024 * 1024,
+        backupCount=3,
+        encoding="utf-8"
+    )
+    file_handler.setLevel(logging.DEBUG)
+    file_formatter = logging.Formatter(
+        fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    file_handler.setFormatter(file_formatter)
+    logger.addHandler(file_handler)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.WARNING)
+    console_formatter = logging.Formatter(fmt="%(levelname)s: %(message)s")
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
     return logger
-
-# Example Usage
-if __name__ == '__main__':
-    log = setup_logger()
-    log.info('Logger is set up and running.')
