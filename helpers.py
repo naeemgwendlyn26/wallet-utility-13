@@ -1,38 +1,40 @@
-import hashlib
-import base58
+"""Helper functions for common crypto wallet operations.
+Practical utilities for address handling and amount conversion.
+"""
 
-def validate_bitcoin_address(address: str) -> bool:
-    """Validate a Bitcoin legacy address using base58 checksum."""
-    if not isinstance(address, str) or len(address) < 26 or len(address) > 35:
+import re
+
+def format_balance(balance: int, decimals: int = 18) -> str:
+    """Format integer balance to human readable string."""
+    if balance < 0:
+        return "0"
+    formatted = balance / (10 ** decimals)
+    return f"{formatted:.8f}".rstrip("0").rstrip(".")
+
+def is_valid_address(address: str) -> bool:
+    """Check if address is valid hex format."""
+    if not isinstance(address, str):
         return False
-    
-    try:
-        decoded = base58.b58decode(address)
-        if len(decoded) != 25:
-            return False
-        
-        payload = decoded[:-4]
-        checksum = decoded[-4:]
-        calculated_checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
-        
-        return checksum == calculated_checksum
-    except Exception:
-        return False
+    return bool(re.match(r"^0x[a-fA-F0-9]{40}$", address))
 
-def satoshis_to_btc(satoshis: int) -> float:
-    """Convert satoshis to whole bitcoins."""
-    if not isinstance(satoshis, int):
-        raise TypeError("Satoshis must be an integer")
-    return satoshis / 100000000.0
+def to_smallest_unit(amount: float, decimals: int = 18) -> int:
+    """Convert decimal amount to smallest unit like wei."""
+    return int(amount * (10 ** decimals))
 
-def btc_to_satoshis(btc: float) -> int:
-    """Convert whole bitcoins to satoshis."""
-    if not isinstance(btc, (int, float)):
-        raise TypeError("BTC amount must be numeric")
-    return int(round(btc * 100000000))
+def from_smallest_unit(amount: int, decimals: int = 18) -> float:
+    """Convert from smallest unit to decimal amount."""
+    return amount / (10 ** decimals)
 
-def mask_wallet_address(address: str) -> str:
-    """Mask a wallet address for safe logging display."""
-    if not isinstance(address, str) or len(address) < 10:
-        return "***"
-    return f"{address[:6]}...{address[-4:]}"
+def shorten_address(address: str, chars: int = 4) -> str:
+    """Return shortened address for display purposes."""
+    if not is_valid_address(address):
+        return address
+    return f"{address[:2 + chars]}...{address[-chars:]}"
+
+def calculate_fee(gas_used: int, gas_price: int) -> int:
+    """Calculate transaction fee in smallest units."""
+    return gas_used * gas_price
+
+def validate_amount(amount: float) -> bool:
+    """Check if amount is positive and finite."""
+    return amount > 0 and amount == amount  # not nan
