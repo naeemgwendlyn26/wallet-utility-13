@@ -1,62 +1,45 @@
-import hashlib
-from functools import lru_cache
-from typing import List, Dict
+import time
+import random
+from typing import Callable, Any, Type
 
-class CoreWallet:
-    def __init__(self):
-        self._balance_cache: Dict[str, float] = {}
-        self._tx_cache: Dict[str, Dict] = {}
+def retry_on_network_error(
+    operation: Callable[[], Any],
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+) -> Any:
+    """Retry network operations with exponential backoff and jitter.
 
-    @lru_cache(maxsize=512)
-    def _compute_hash(self, data: str) -> str:
-        # Optimized hash computation with lru cache
-        return hashlib.sha256(data.encode('utf-8')).hexdigest()
+    Used for crypto API calls like balance queries or transaction broadcasts.
+    """
+    last_exception = None
+    for attempt in range(max_retries):
+        try:
+            return operation()
+        except (ConnectionError, TimeoutError, OSError) as e:
+            last_exception = e
+            if attempt == max_retries - 1:
+                break
+            # Exponential backoff with jitter
+            delay = base_delay * (2 ** attempt) + random.uniform(0, 0.5)
+            time.sleep(delay)
+    raise RuntimeError(f"Network operation failed after {max_retries} retries") from last_exception
 
-    def get_balance(self, address: str) -> float:
-        # Use cache to avoid recomputation
-        if address in self._balance_cache:
-            return self._balance_cache[address]
-        addr_hash = self._compute_hash(address)
-        # Derive pseudo balance from hash for demo
-        balance = int(addr_hash[:16], 16) / 1e12
-        self._balance_cache[address] = balance
-        return balance
+# Practical example for wallet utility
+def query_blockchain(address: str) -> dict:
+    """Simulate a network call to fetch crypto wallet data."""
+    # Real implementation would use web3.py or requests to RPC endpoint
+    if random.random() < 0.6:
+        raise ConnectionError("Failed to connect to Ethereum node")
+    return {"address": address, "balance": "1.5", "transactions": 42}
 
-    def batch_get_balances(self, addresses: List[str]) -> Dict[str, float]:
-        # Batch processing to minimize cache misses
-        results: Dict[str, float] = {}
-        uncached = []
-        for address in addresses:
-            if address in self._balance_cache:
-                results[address] = self._balance_cache[address]
-            else:
-                uncached.append(address)
-        for address in uncached:
-            results[address] = self.get_balance(address)
-        return results
+def get_wallet_data(address: str) -> dict:
+    """Fetch wallet data with built-in retry logic."""
+    return retry_on_network_error(lambda: query_blockchain(address))
 
-    def process_payment(self, address: str, amount: float) -> Dict:
-        tx_key = f"{address}:{amount}"
-        if tx_key in self._tx_cache:
-            return self._tx_cache[tx_key]
-        balance = self.get_balance(address)
-        if balance < amount:
-            result = {"status": "insufficient", "balance": balance}
-        else:
-            new_balance = balance - amount
-            self._balance_cache[address] = new_balance
-            result = {"status": "success", "new_balance": new_balance}
-        self._tx_cache[tx_key] = result
-        return result
-
-    def get_transaction_history(self, address: str) -> List[Dict]:
-        history = []
-        for key, res in self._tx_cache.items():
-            if key.startswith(address):
-                history.append(res)
-        return history
-
-    def clear_caches(self) -> None:
-        self._balance_cache.clear()
-        self._tx_cache.clear()
-        self._compute_hash.cache_clear()
+if __name__ == "__main__":
+    test_address = "0x1234567890abcdef1234567890abcdef12345678"
+    try:
+        data = get_wallet_data(test_address)
+        print(f"Wallet data: {data}")
+    except RuntimeError as e:
+        print(f"Failed to get data: {e}")
