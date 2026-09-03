@@ -1,45 +1,57 @@
 import time
-import random
-from typing import Callable, Any, Type
+import logging
+import functools
+from typing import Callable, Any, Tuple
 
-def retry_on_network_error(
-    operation: Callable[[], Any],
+logger = logging.getLogger(__name__)
+
+def retry_network_op(
     max_retries: int = 3,
-    base_delay: float = 1.0,
-) -> Any:
-    """Retry network operations with exponential backoff and jitter.
-
-    Used for crypto API calls like balance queries or transaction broadcasts.
+    backoff_factor: float = 1.5,
+    exceptions: Tuple[type[Exception], ...] = (ConnectionError, TimeoutError)
+) -> Callable:
     """
-    last_exception = None
-    for attempt in range(max_retries):
-        try:
-            return operation()
-        except (ConnectionError, TimeoutError, OSError) as e:
-            last_exception = e
-            if attempt == max_retries - 1:
-                break
-            # Exponential backoff with jitter
-            delay = base_delay * (2 ** attempt) + random.uniform(0, 0.5)
-            time.sleep(delay)
-    raise RuntimeError(f"Network operation failed after {max_retries} retries") from last_exception
+    Decorator to retry network operations with exponential backoff.
+    """
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            delay = 1.0
+            for attempt in range(1, max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as exc:
+                    if attempt == max_retries:
+                        logger.error(f"Operation {func.__name__} failed after {max_retries} attempts: {exc}")
+                        raise
+                    
+                    logger.warning(
+                        f"Attempt {attempt}/{max_retries} for {func.__name__} failed: {exc}. "
+                        f"Retrying in {delay:.2f}s..."
+                    )
+                    time.sleep(delay)
+                    delay *= backoff_factor
+        return wrapper
+    return decorator
 
-# Practical example for wallet utility
-def query_blockchain(address: str) -> dict:
-    """Simulate a network call to fetch crypto wallet data."""
-    # Real implementation would use web3.py or requests to RPC endpoint
-    if random.random() < 0.6:
-        raise ConnectionError("Failed to connect to Ethereum node")
-    return {"address": address, "balance": "1.5", "transactions": 42}
 
-def get_wallet_data(address: str) -> dict:
-    """Fetch wallet data with built-in retry logic."""
-    return retry_on_network_error(lambda: query_blockchain(address))
+class CryptoNodeClient:
+    """Client handling blockchain node queries with fault tolerance."""
 
-if __name__ == "__main__":
-    test_address = "0x1234567890abcdef1234567890abcdef12345678"
-    try:
-        data = get_wallet_data(test_address)
-        print(f"Wallet data: {data}")
-    except RuntimeError as e:
-        print(f"Failed to get data: {e}")
+    def __init__(self, endpoint_url: str):
+        self.endpoint_url = endpoint_url
+
+    @retry_network_op(max_retries=4, backoff_factor=2.0)
+    def get_block_height(self) -> int:
+        """Query current block height with network failure retries."""
+        # Simulated node interaction
+        return 18452091
+
+    @retry_network_op(max_retries=3, backoff_factor=1.5)
+    def get_transaction(self, tx_hash: str) -> dict:
+        """Retrieve transaction details by hash."""
+        return {
+            "tx_hash": tx_hash,
+            "confirmations": 12,
+            "status": "success"
+        }
