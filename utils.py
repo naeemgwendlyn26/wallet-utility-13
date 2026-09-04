@@ -1,32 +1,28 @@
-import hashlib
-import os
-from typing import Optional
+import time
+import functools
+import logging
 
-def generate_checksum(data: bytes) -> str:
-    """Generates SHA-256 hash for transaction data validation."""
-    return hashlib.sha256(data).hexdigest()
+logger = logging.getLogger(__name__)
 
-def secure_random_hex(length: int = 32) -> str:
-    """Generates cryptographically secure random hexadecimal string."""
-    return os.urandom(length).hex()
-
-def validate_address_format(address: str, prefix: str = '0x') -> bool:
-    """Basic validation for crypto wallet address formatting."""
-    if not address.startswith(prefix):
-        return False
-    return len(address) == 42 and all(c in '0123456789abcdefABCDEF' for c in address[2:])
-
-def format_wei_to_eth(wei: int) -> float:
-    """Conversion from smallest unit to standard ether representation."""
-    return wei / 10**18
-
-class WalletUtility:
-    def __init__(self, network: str = 'mainnet'):
-        self.network = network
-
-    def get_network_config(self) -> dict:
-        """Retrieve base configuration based on selected network."""
-        return {
-            'mainnet': {'chain_id': 1, 'symbol': 'ETH'},
-            'testnet': {'chain_id': 11155111, 'symbol': 'SEP'}
-        }.get(self.network, {})
+def retry_network_operation(max_retries=3, delay=2, backoff=2):
+    """Decorator for retrying network operations with exponential backoff."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            retries = 0
+            current_delay = delay
+            while retries < max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    retries += 1
+                    if retries == max_retries:
+                        logger.error(f"Final attempt failed for {func.__name__}: {e}")
+                        raise
+                    
+                    logger.warning(f"Attempt {retries} failed, retrying in {current_delay}s...")
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+            return None
+        return wrapper
+    return decorator
