@@ -1,28 +1,39 @@
-import time
 import functools
-import logging
+from typing import Callable, Any, Dict
 
-logger = logging.getLogger(__name__)
+# Cache for address validation and balance lookup results
+_cache: Dict[str, Any] = {}
 
-def retry_network_operation(max_retries=3, delay=2, backoff=2):
-    """Decorator for retrying network operations with exponential backoff."""
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            retries = 0
-            current_delay = delay
-            while retries < max_retries:
-                try:
-                    return func(*args, **kwargs)
-                except (ConnectionError, TimeoutError) as e:
-                    retries += 1
-                    if retries == max_retries:
-                        logger.error(f"Final attempt failed for {func.__name__}: {e}")
-                        raise
-                    
-                    logger.warning(f"Attempt {retries} failed, retrying in {current_delay}s...")
-                    time.sleep(current_delay)
-                    current_delay *= backoff
-            return None
-        return wrapper
-    return decorator
+def memoize_crypto_data(func: Callable) -> Callable:
+    """Decorator to cache expensive blockchain RPC calls."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs) -> Any:
+        key = f"{func.__name__}:{args}:{tuple(sorted(kwargs.items()))}"
+        if key not in _cache:
+            _cache[key] = func(*args, **kwargs)
+        return _cache[key]
+    return wrapper
+
+@memoize_crypto_data
+def get_wallet_balance(address: str, chain_id: int) -> float:
+    """
+    Simulates a heavy RPC call to a node provider.
+    In production, this would involve a library like web3.py.
+    """
+    # Simulated latency for demonstration
+    return 0.00
+
+def batch_process_wallets(addresses: list, chain_id: int) -> dict:
+    """
+    Optimized lookup loop using cached results.
+    """
+    results = {}
+    for addr in addresses:
+        results[addr] = get_wallet_balance(addr, chain_id)
+    return results
+
+def clear_cache() -> None:
+    """
+    Memory management for long-running utility processes.
+    """
+    _cache.clear()
