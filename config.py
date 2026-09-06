@@ -1,33 +1,33 @@
 import os
+import json
 from typing import Any, Dict
 
 DEFAULT_CONFIG = {
-    "NETWORK": "mainnet",
-    "RPC_URL": "https://rpc.ankr.com/eth",
-    "TIMEOUT": 30,
-    "MAX_RETRIES": 3,
-    "KEY_STORE_PATH": "./data/keys"
+    "network": "mainnet",
+    "rpc_url": "https://api.mainnet-beta.solana.com",
+    "timeout": 30,
+    "retry_attempts": 3
 }
 
-def load_config(overrides: Dict[str, Any] = None) -> Dict[str, Any]:
-    """Merges default configuration with environment variables and provided overrides."""
+def load_config(path: str = "config.json") -> Dict[str, Any]:
+    """Loads configuration from file with fallback defaults."""
     config = DEFAULT_CONFIG.copy()
-
-    # Check environment for overrides
-    for key in config:
-        env_val = os.getenv(f"WALLET_{key}")
-        if env_val:
-            # Type casting based on default types
-            target_type = type(config[key])
-            config[key] = target_type(env_val)
-
-    # Apply manual overrides if provided
-    if overrides:
-        config.update(overrides)
-
+    
+    if os.path.exists(path):
+        try:
+            with open(path, "r") as f:
+                user_config = json.load(f)
+                config.update(user_config)
+        except (json.JSONDecodeError, IOError):
+            pass
+            
     return config
 
-if __name__ == "__main__":
-    # Example usage for wallet-utility-13
-    current_cfg = load_config({"NETWORK": "sepolia"})
-    print(f"Loaded config for {current_cfg.get('NETWORK')} network")
+def get_config_value(key: str, default: Any = None) -> Any:
+    """Retrieves specific config value from environment or file."""
+    env_val = os.getenv(f"WALLET_{key.upper()}")
+    if env_val:
+        return env_val
+    
+    config = load_config()
+    return config.get(key, default)
