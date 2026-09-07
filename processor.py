@@ -1,39 +1,39 @@
-import json
-import logging
-from decimal import Decimal, InvalidOperation
+import re
 
-logger = logging.getLogger(__name__)
+def truncate_address(address: str, start_chars: int = 6, end_chars: int = 4) -> str:
+    """Safely truncates a crypto address for user interface display."""
+    if not address or len(address) <= (start_chars + end_chars):
+        return address
+    return f"{address[:start_chars]}...{address[-end_chars:]}"
 
-class ProcessingError(Exception):
-    """Custom exception for payload processing failures."""
-    pass
+def wei_to_ether(wei: int) -> float:
+    """Converts a value in Wei to Ether."""
+    return float(wei) / 10**18
 
-def process_transaction_payload(raw_payload: str) -> dict:
-    """Parses and validates a raw cryptocurrency transaction payload."""
-    if not raw_payload or not isinstance(raw_payload, str):
-        raise ValueError("Payload must be a non-empty string")
+def ether_to_wei(ether: float) -> int:
+    """Converts a value in Ether to Wei."""
+    return int(ether * 10**18)
 
+def process_transaction_input(tx_data: dict) -> dict:
+    """Processes and standardizes raw transaction data for wallet display."""
+    processed = {}
+    
+    raw_to = tx_data.get("to", "")
+    processed["to_address"] = str(raw_to).strip()
+    processed["to_display"] = truncate_address(processed["to_address"])
+    
+    raw_value = tx_data.get("value", 0)
     try:
-        data = json.loads(raw_payload)
-    except json.JSONDecodeError as err:
-        logger.error(f"Invalid JSON payload: {err}")
-        raise ProcessingError("Malformed JSON payload provided") from err
-
-    required_keys = {"sender", "recipient", "amount"}
-    if not required_keys.issubset(data.keys()):
-        missing = required_keys - set(data.keys())
-        raise ProcessingError(f"Missing required payload fields: {', '.join(missing)}")
-
-    try:
-        amount = Decimal(str(data["amount"]))
-        if amount <= 0:
-            raise ProcessingError("Transaction amount must be strictly positive")
-    except (InvalidOperation, TypeError) as err:
-        raise ProcessingError("Invalid decimal amount specified") from err
-
-    return {
-        "sender": str(data["sender"]).strip(),
-        "recipient": str(data["recipient"]).strip(),
-        "amount": amount,
-        "status": "validated"
-    }
+        wei_val = int(raw_value)
+    except (ValueError, TypeError):
+        wei_val = 0
+        
+    processed["value_wei"] = wei_val
+    processed["value_ether"] = wei_to_ether(wei_val)
+    
+    gas_price = int(tx_data.get("gasPrice", 0))
+    gas_limit = int(tx_data.get("gas", 0))
+    processed["fee_wei"] = gas_price * gas_limit
+    processed["fee_ether"] = wei_to_ether(processed["fee_wei"])
+    
+    return processed
