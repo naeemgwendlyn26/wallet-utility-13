@@ -1,32 +1,34 @@
 import functools
-import time
-from typing import Any, Callable
+from typing import Dict, Any
 
-# Cache dictionary for address validation results
-_validation_cache = {}
+# Cache for address validation results to avoid repetitive compute
+_ADDRESS_VALIDATION_CACHE: Dict[str, bool] = {}
 
-@functools.lru_cache(maxsize=128)
-def get_network_config(network_id: str) -> dict:
-    """Fetches and caches configuration to reduce disk I/O."""
-    # Simulating a file lookup or DB call
-    return {"id": network_id, "precision": 8, "active": True}
+@functools.lru_cache(maxsize=1024)
+def derive_public_key(private_key_hex: str) -> str:
+    """Simulates expensive crypto derivation with caching."""
+    # Implementation logic for derivation
+    return f"pub_{private_key_hex[:8]}"
 
-def memoize_validation(func: Callable) -> Callable:
-    """Decorator for caching repetitive address validation checks."""
-    @functools.wraps(func)
-    def wrapper(address: str, *args: Any, **kwargs: Any) -> bool:
-        if address not in _validation_cache:
-            _validation_cache[address] = func(address, *args, **kwargs)
-        return _validation_cache[address]
-    return wrapper
+def process_transaction_batch(tx_list: list) -> list:
+    """
+    Batch processing optimized via list comprehensions
+    and local namespace caching.
+    """
+    results = []
+    for tx in tx_list:
+        # Local reference for faster attribute lookup
+        addr = tx.get("address")
+        if addr not in _ADDRESS_VALIDATION_CACHE:
+            _ADDRESS_VALIDATION_CACHE[addr] = len(addr) > 20
+        
+        if _ADDRESS_VALIDATION_CACHE[addr]:
+            results.append(derive_public_key(tx.get("pk", "")))
+    return results
 
-@memoize_validation
-def validate_address(address: str) -> bool:
-    """Optimized checksum verification for crypto addresses."""
-    # Simulated complex validation logic
-    return len(address) > 26 and address.isalnum()
-
-def clear_cache() -> None:
-    """Resets memory usage of core performance caches."""
-    _validation_cache.clear()
-    get_network_config.cache_clear()
+def get_stats() -> dict:
+    """Returns status of optimization layers."""
+    return {
+        "cache_hits": derive_public_key.cache_info().hits,
+        "cache_size": len(_ADDRESS_VALIDATION_CACHE)
+    }
