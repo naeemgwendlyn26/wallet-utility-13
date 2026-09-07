@@ -1,39 +1,32 @@
-import functools
-from typing import Callable, Any, Dict
+import logging
+from typing import Optional, Dict
 
-# Cache for address validation and balance lookup results
-_cache: Dict[str, Any] = {}
+# Configure logging for wallet-utility-13
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('wallet_utility')
 
-def memoize_crypto_data(func: Callable) -> Callable:
-    """Decorator to cache expensive blockchain RPC calls."""
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs) -> Any:
-        key = f"{func.__name__}:{args}:{tuple(sorted(kwargs.items()))}"
-        if key not in _cache:
-            _cache[key] = func(*args, **kwargs)
-        return _cache[key]
-    return wrapper
+def format_address(address: str) -> str:
+    """Truncate crypto address for display."""
+    if len(address) < 10:
+        return address
+    return f"{address[:6]}...{address[-4:]}"
 
-@memoize_crypto_data
-def get_wallet_balance(address: str, chain_id: int) -> float:
-    """
-    Simulates a heavy RPC call to a node provider.
-    In production, this would involve a library like web3.py.
-    """
-    # Simulated latency for demonstration
-    return 0.00
+def validate_amount(amount: str) -> Optional[float]:
+    """Ensure amount is a positive float."""
+    try:
+        value = float(amount)
+        return value if value > 0 else None
+    except (ValueError, TypeError):
+        return None
 
-def batch_process_wallets(addresses: list, chain_id: int) -> dict:
-    """
-    Optimized lookup loop using cached results.
-    """
-    results = {}
-    for addr in addresses:
-        results[addr] = get_wallet_balance(addr, chain_id)
-    return results
+def get_network_fee(gas_price: int, gas_limit: int) -> float:
+    """Calculate fee in ETH based on gas parameters."""
+    return (gas_price * gas_limit) / 10**18
 
-def clear_cache() -> None:
-    """
-    Memory management for long-running utility processes.
-    """
-    _cache.clear()
+def parse_transaction_data(data: Dict) -> Dict:
+    """Sanitize transaction dictionary for processing."""
+    return {
+        "to": data.get("to", "").lower(),
+        "value": float(data.get("value", 0)),
+        "nonce": int(data.get("nonce", 0))
+    }
