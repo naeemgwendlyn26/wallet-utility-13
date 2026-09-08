@@ -1,33 +1,34 @@
-import hashlib
-import hmac
-from typing import Dict, Any
-import json
+import functools
+import time
+from typing import Callable, Any
 
-def generate_signature(api_secret: str, payload: str) -> str:
-    """Generates HMAC-SHA256 signature for API authentication."""
-    return hmac.new(
-        api_secret.encode('utf-8'),
-        payload.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
+# Cache for crypto address validation results
+# Prevents redundant compute overhead in high-frequency wallet operations
+_validation_cache = {}
 
-def format_amount(amount: float, decimals: int = 8) -> str:
-    """Formats float balances for strict crypto precision."""
-    return f"{amount:.{decimals}f}"
+def memoize_validation(func: Callable) -> Callable:
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs) -> Any:
+        key = str(args) + str(kwargs)
+        if key not in _validation_cache:
+            _validation_cache[key] = func(*args, **kwargs)
+        return _validation_cache[key]
+    return wrapper
 
-def parse_response(response_text: str) -> Dict[str, Any]:
-    """Safely parses JSON network responses."""
-    try:
-        return json.loads(response_text)
-    except (json.JSONDecodeError, TypeError):
-        return {}
-
-def validate_address(address: str, prefix: str = '0x') -> bool:
-    """Validates basic hex address structure."""
-    if not address.startswith(prefix):
+@memoize_validation
+def validate_address_format(address: str, chain: str) -> bool:
+    """Simulates expensive regex/checksum crypto validation."""
+    time.sleep(0.01)  # Simulate network/crypto overhead
+    if not address.startswith('0x'):
         return False
-    return all(c in '0123456789abcdefABCDEF' for c in address[len(prefix):])
+    return len(address) == 42
 
-def calculate_fee(amount: float, fee_rate: float) -> float:
-    """Calculates network transaction fee."""
-    return round(amount * fee_rate, 8)
+def process_batch(addresses: list, chain: str) -> list:
+    """Process wallet addresses with cache-backed validation."""
+    results = []
+    for addr in addresses:
+        results.append({
+            'address': addr,
+            'valid': validate_address_format(addr, chain)
+        })
+    return results
