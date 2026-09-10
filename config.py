@@ -1,26 +1,30 @@
 import os
-import json
-from typing import Any, Dict
+from dataclasses import dataclass
+from typing import Dict, Any
 
-DEFAULT_CONFIG = {
-    "network": "mainnet",
-    "rpc_url": "https://eth-mainnet.public.blastapi.io",
-    "timeout": 30,
-    "retry_attempts": 3
+@dataclass(frozen=True)
+class WalletConfig:
+    network: str
+    rpc_url: str
+    timeout: int
+
+def load_config() -> WalletConfig:
+    """Initialize application configuration from environment variables."""
+    return WalletConfig(
+        network=os.getenv("WALLET_NETWORK", "mainnet"),
+        rpc_url=os.getenv("RPC_ENDPOINT", "https://api.mainnet.network"),
+        timeout=int(os.getenv("REQUEST_TIMEOUT", "30"))
+    )
+
+# Global config singleton
+settings = load_config()
+
+# Network constants
+SUPPORTED_NETWORKS = {
+    "mainnet": "https://mainnet.infura.io",
+    "testnet": "https://sepolia.infura.io"
 }
 
-def load_config(config_path: str = "config.json") -> Dict[str, Any]:
-    """Loads configuration from file or returns defaults."""
-    config = DEFAULT_CONFIG.copy()
-    
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, "r") as f:
-                user_config = json.load(f)
-                config.update(user_config)
-        except (json.JSONDecodeError, IOError):
-            pass
-            
-    return config
-
-settings = load_config()
+def get_provider_url(network_name: str) -> str:
+    """Retrieve RPC URL for a specific network."""
+    return SUPPORTED_NETWORKS.get(network_name, settings.rpc_url)
