@@ -1,30 +1,31 @@
 import os
-from dataclasses import dataclass
-from typing import Dict, Any
+from typing import Dict, Any, Final
 
-@dataclass(frozen=True)
+# Network constants for wallet-utility-13
+MAINNET_RPC: Final[str] = "https://mainnet.infura.io/v3/"
+TESTNET_RPC: Final[str] = "https://sepolia.infura.io/v3/"
+
 class WalletConfig:
-    network: str
-    rpc_url: str
-    timeout: int
+    """Configuration management for crypto wallet operations."""
 
-def load_config() -> WalletConfig:
-    """Initialize application configuration from environment variables."""
-    return WalletConfig(
-        network=os.getenv("WALLET_NETWORK", "mainnet"),
-        rpc_url=os.getenv("RPC_ENDPOINT", "https://api.mainnet.network"),
-        timeout=int(os.getenv("REQUEST_TIMEOUT", "30"))
-    )
+    def __init__(self, env: str = "production") -> None:
+        self.env: str = env
+        self.timeout: int = int(os.getenv("WALLET_TIMEOUT", 30))
+        self.retry_limit: int = 3
 
-# Global config singleton
-settings = load_config()
+    def get_rpc_url(self) -> str:
+        """Selects appropriate RPC endpoint based on environment."""
+        return MAINNET_RPC if self.env == "production" else TESTNET_RPC
 
-# Network constants
-SUPPORTED_NETWORKS = {
-    "mainnet": "https://mainnet.infura.io",
-    "testnet": "https://sepolia.infura.io"
-}
+    def to_dict(self) -> Dict[str, Any]:
+        """Returns serialized configuration settings."""
+        return {
+            "environment": self.env,
+            "timeout": self.timeout,
+            "rpc": self.get_rpc_url(),
+            "retry_limit": self.retry_limit
+        }
 
-def get_provider_url(network_name: str) -> str:
-    """Retrieve RPC URL for a specific network."""
-    return SUPPORTED_NETWORKS.get(network_name, settings.rpc_url)
+def load_defaults() -> WalletConfig:
+    """Factory function for default config instance."""
+    return WalletConfig(env=os.getenv("APP_ENV", "production"))
