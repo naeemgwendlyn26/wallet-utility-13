@@ -1,32 +1,30 @@
-import logging
-from typing import Optional, Dict
+import hashlib
+from typing import Optional
 
-# Configure logging for wallet-utility-13
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('wallet_utility')
+def generate_address_checksum(pubkey_hex: str) -> str:
+    """Generates a standard EIP-55 style checksum for a hex address."""
+    address = pubkey_hex.lower().replace('0x', '')
+    hash_addr = hashlib.sha3_256(address.encode()).hexdigest()
+    
+    checksum_addr = '0x'
+    for i in range(len(address)):
+        if int(hash_addr[i], 16) >= 8:
+            checksum_addr += address[i].upper()
+        else:
+            checksum_addr += address[i]
+    return checksum_addr
 
-def format_address(address: str) -> str:
-    """Truncate crypto address for display."""
-    if len(address) < 10:
-        return address
-    return f"{address[:6]}...{address[-4:]}"
+def validate_transaction_fee(gas_price: int, gas_limit: int, balance: int) -> bool:
+    """Verifies if wallet balance covers the estimated transaction cost."""
+    required_fee = gas_price * gas_limit
+    return balance >= required_fee
 
-def validate_amount(amount: str) -> Optional[float]:
-    """Ensure amount is a positive float."""
-    try:
-        value = float(amount)
-        return value if value > 0 else None
-    except (ValueError, TypeError):
-        return None
+def format_wei_to_eth(wei_amount: int) -> float:
+    """Converts raw wei integers to readable ether floats."""
+    return float(wei_amount) / 1e18
 
-def get_network_fee(gas_price: int, gas_limit: int) -> float:
-    """Calculate fee in ETH based on gas parameters."""
-    return (gas_price * gas_limit) / 10**18
-
-def parse_transaction_data(data: Dict) -> Dict:
-    """Sanitize transaction dictionary for processing."""
-    return {
-        "to": data.get("to", "").lower(),
-        "value": float(data.get("value", 0)),
-        "nonce": int(data.get("nonce", 0))
-    }
+def sanitize_hex(data: Optional[str]) -> str:
+    """Ensures hex strings contain proper prefixes."""
+    if not data:
+        return '0x0'
+    return data if data.startswith('0x') else f'0x{data}'
