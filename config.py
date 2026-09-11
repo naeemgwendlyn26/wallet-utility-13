@@ -1,31 +1,39 @@
 import os
-from typing import Dict, Any, Final
+import logging
+from typing import Dict, Any
 
-# Network constants for wallet-utility-13
-MAINNET_RPC: Final[str] = "https://mainnet.infura.io/v3/"
-TESTNET_RPC: Final[str] = "https://sepolia.infura.io/v3/"
+class ConfigError(Exception):
+    """Custom exception for wallet configuration failures."""
+    pass
 
-class WalletConfig:
-    """Configuration management for crypto wallet operations."""
+def load_wallet_config() -> Dict[str, Any]:
+    """Load and validate environment configurations."""
+    required_vars = ['RPC_URL', 'WALLET_ADDRESS', 'NETWORK_ID']
+    config = {}
 
-    def __init__(self, env: str = "production") -> None:
-        self.env: str = env
-        self.timeout: int = int(os.getenv("WALLET_TIMEOUT", 30))
-        self.retry_limit: int = 3
+    try:
+        for var in required_vars:
+            value = os.getenv(var)
+            if not value:
+                raise ConfigError(f"Missing required environment variable: {var}")
+            config[var] = value
+            
+        # Validate network identifier format
+        if not config['NETWORK_ID'].isdigit():
+            raise ConfigError("NETWORK_ID must be a numeric string")
+            
+    except ConfigError as e:
+        logging.error(f"Configuration failure: {e}")
+        raise
+    except Exception as e:
+        logging.critical(f"Unexpected configuration error: {e}")
+        raise ConfigError("Internal configuration load failure") from e
 
-    def get_rpc_url(self) -> str:
-        """Selects appropriate RPC endpoint based on environment."""
-        return MAINNET_RPC if self.env == "production" else TESTNET_RPC
+    return config
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Returns serialized configuration settings."""
-        return {
-            "environment": self.env,
-            "timeout": self.timeout,
-            "rpc": self.get_rpc_url(),
-            "retry_limit": self.retry_limit
-        }
-
-def load_defaults() -> WalletConfig:
-    """Factory function for default config instance."""
-    return WalletConfig(env=os.getenv("APP_ENV", "production"))
+# Initialize global configuration safely
+try:
+    SETTINGS = load_wallet_config()
+except ConfigError:
+    SETTINGS = {}
+    logging.warning("Wallet utility running in unconfigured state")
