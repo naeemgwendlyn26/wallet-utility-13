@@ -1,42 +1,32 @@
-from typing import Dict, List, Any
+import time
+import logging
+from typing import Callable, Any, Optional
 
+logger = logging.getLogger(__name__)
 
-def format_token_amount(raw_amount: int, decimals: int = 18) -> str:
-    """Format raw integer token amount into decimal string representation."""
-    if decimals < 0:
-        raise ValueError("Decimals cannot be negative")
+def with_retry(func: Callable, retries: int = 3, delay: float = 1.0, backoff: float = 2.0) -> Any:
+    """Executes a network-bound function with exponential backoff."""
+    current_delay = delay
+    for attempt in range(retries):
+        try:
+            return func()
+        except Exception as e:
+            if attempt == retries - 1:
+                logger.error(f"Final attempt failed: {str(e)}")
+                raise
+            
+            logger.warning(f"Attempt {attempt + 1} failed, retrying in {current_delay}s...")
+            time.sleep(current_delay)
+            current_delay *= backoff
 
-    str_amount = str(raw_amount).zfill(decimals + 1)
-    integer_part = str_amount[:-decimals] or "0"
-    fractional_part = str_amount[-decimals:].rstrip("0")
+def fetch_wallet_balance(api_client: Any, wallet_address: str) -> dict:
+    """
+    Example implementation for fetching balance with retry logic.
+    Uses a lambda to wrap the specific network call.
+    """
+    return with_retry(lambda: api_client.get_balance(wallet_address))
 
-    if fractional_part:
-        return f"{integer_part}.{fractional_part}"
-    return integer_part
-
-
-def normalize_tx_hash(tx_hash: str) -> str:
-    """Standardize transaction hash with 0x prefix and lowercase formatting."""
-    cleaned = tx_hash.strip()
-    if not cleaned.startswith("0x"):
-        cleaned = f"0x{cleaned}"
-    return cleaned.lower()
-
-
-def process_wallet_balance_data(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Process and format raw wallet balance records into structured output."""
-    processed = []
-    for item in data:
-        symbol = item.get("symbol", "UNKNOWN").upper()
-        decimals = int(item.get("decimals", 18))
-        raw_balance = int(item.get("raw_balance", 0))
-        address = item.get("token_address", "")
-
-        processed.append({
-            "symbol": symbol,
-            "balance": format_token_amount(raw_balance, decimals),
-            "decimals": decimals,
-            "token_address": address.lower() if address else None,
-            "raw_balance": raw_balance,
-        })
-    return processed
+if __name__ == "__main__":
+    # Example usage for wallet-utility-13 integration
+    logging.basicConfig(level=logging.INFO)
+    print("Network operation retry wrapper initialized")
