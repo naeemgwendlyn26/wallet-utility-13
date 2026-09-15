@@ -1,29 +1,27 @@
+from typing import Optional
+
 class WalletError(Exception):
-    """Base exception for wallet-utility-13."""
-    pass
+    """Base exception for all wallet-utility-13 operations."""
+    def __init__(self, message: str, code: Optional[int] = None) -> None:
+        super().__init__(message)
+        self.code = code
 
 class InsufficientFundsError(WalletError):
-    """Raised when account balance is too low."""
+    """Raised when the balance is lower than the transaction amount."""
     pass
 
-class NetworkTimeoutError(WalletError):
-    """Raised when RPC or network calls fail."""
-    pass
-
-class TransactionValidationError(WalletError):
-    """Raised when transaction data is malformed."""
+class ConnectionTimeoutError(WalletError):
+    """Raised when the RPC node fails to respond in time."""
     pass
 
 class InvalidAddressError(WalletError):
-    """Raised when wallet address format is invalid."""
+    """Raised when a provided crypto address fails validation."""
     pass
 
-def handle_crypto_error(err: Exception) -> str:
-    """Format errors for logging and UI display."""
-    if isinstance(err, InsufficientFundsError):
-        return "insufficient funds for operation"
-    if isinstance(err, InvalidAddressError):
-        return "provided address is not valid"
-    if isinstance(err, NetworkTimeoutError):
-        return "network connection issue detected"
-    return f"unexpected error: {str(err)}"
+class TransactionSigningError(WalletError):
+    """Raised when a cryptographic signature fails generation."""
+    pass
+
+class DatabaseConnectionError(WalletError):
+    """Raised when local state storage is inaccessible."""
+    pass
