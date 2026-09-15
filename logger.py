@@ -1,35 +1,33 @@
 import logging
-from logging.handlers import RotatingFileHandler
+import sys
 import os
 
-LOG_FILE = "wallet-utility-13.log"
-MAX_BYTES = 5 * 1024 * 1024
-BACKUP_COUNT = 3
-
-def get_logger(name: str) -> logging.Logger:
-    """Configures a rotating file logger for wallet operations."""
+def setup_logger(name: str = "wallet-utility-13") -> logging.Logger:
+    """Configures a robust logger for cryptographic operations."""
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
 
-    if not logger.handlers:
-        # Create rotating file handler to prevent disk exhaustion
-        file_handler = RotatingFileHandler(
-            LOG_FILE, 
-            maxBytes=MAX_BYTES, 
-            backupCount=BACKUP_COUNT
-        )
+    try:
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
         
-        # Standard formatting for audit and debugging
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        file_handler.setFormatter(formatter)
-        
-        # Console output for immediate development feedback
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        
-        logger.addHandler(file_handler)
-        logger.addHandler(console_handler)
+        if not logger.handlers:
+            logger.addHandler(handler)
+    except Exception as e:
+        print(f"Critical: Logger initialization failure: {e}", file=sys.stderr)
+        sys.exit(1)
 
     return logger
+
+def log_error(logger: logging.Logger, err: Exception, context: str = "operation") -> None:
+    """Standardized logging format for caught edge-case exceptions."""
+    if isinstance(err, (ConnectionError, TimeoutError)):
+        logger.error(f"Network-related fault during {context}: {str(err)}")
+    elif isinstance(err, ValueError):
+        logger.warning(f"Validation failure in {context}: {str(err)}")
+    else:
+        logger.critical(f"Unhandled system exception in {context}: {type(err).__name__} - {str(err)}")
+
+# Instance for global module usage
+wallet_logger = setup_logger()
