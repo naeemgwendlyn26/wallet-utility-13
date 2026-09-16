@@ -1,29 +1,29 @@
 class WalletError(Exception):
-    """Base exception for all wallet operations."""
+    """Base exception for all wallet-utility-13 operations."""
     pass
 
-class InsufficientFundsError(WalletError):
-    """Raised when account balance is below transaction cost."""
-    def __init__(self, required, actual):
-        super().__init__(f"Required {required}, but only {actual} available.")
+class InsufficientBalanceError(WalletError):
+    """Raised when transaction amount exceeds available balance."""
+    pass
 
 class InvalidAddressError(WalletError):
-    """Raised when a crypto address format is invalid."""
+    """Raised when the provided cryptocurrency address format is invalid."""
     pass
 
-class NetworkTimeoutError(WalletError):
-    """Raised when connection to the node times out."""
+class NetworkConnectionError(WalletError):
+    """Raised when RPC or network requests fail."""
     pass
 
-class SigningError(WalletError):
-    """Raised when transaction signature fails."""
+class TransactionSigningError(WalletError):
+    """Raised when private key signing operations fail."""
     pass
 
 class ConfigurationError(WalletError):
-    """Raised when wallet settings are invalid."""
+    """Raised when environment variables or config files are missing."""
     pass
 
-def raise_if_insufficient(balance: float, amount: float, fee: float):
-    """Validation helper for balance checks."""
-    if balance < (amount + fee):
-        raise InsufficientFundsError(amount + fee, balance)
+def handle_exception(e: Exception) -> str:
+    """Format exception message for logger output."""
+    if isinstance(e, WalletError):
+        return f"[WalletError] {e}"
+    return f"[UnexpectedError] {type(e).__name__}: {str(e)}"
