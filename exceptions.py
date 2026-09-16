@@ -1,27 +1,29 @@
-from typing import Optional
-
 class WalletError(Exception):
-    """Base exception for all wallet-utility-13 operations."""
-    def __init__(self, message: str, code: Optional[int] = None) -> None:
-        super().__init__(message)
-        self.code = code
+    """Base exception for all wallet operations."""
+    pass
 
 class InsufficientFundsError(WalletError):
-    """Raised when the balance is lower than the transaction amount."""
-    pass
-
-class ConnectionTimeoutError(WalletError):
-    """Raised when the RPC node fails to respond in time."""
-    pass
+    """Raised when account balance is below transaction cost."""
+    def __init__(self, required, actual):
+        super().__init__(f"Required {required}, but only {actual} available.")
 
 class InvalidAddressError(WalletError):
-    """Raised when a provided crypto address fails validation."""
+    """Raised when a crypto address format is invalid."""
     pass
 
-class TransactionSigningError(WalletError):
-    """Raised when a cryptographic signature fails generation."""
+class NetworkTimeoutError(WalletError):
+    """Raised when connection to the node times out."""
     pass
 
-class DatabaseConnectionError(WalletError):
-    """Raised when local state storage is inaccessible."""
+class SigningError(WalletError):
+    """Raised when transaction signature fails."""
     pass
+
+class ConfigurationError(WalletError):
+    """Raised when wallet settings are invalid."""
+    pass
+
+def raise_if_insufficient(balance: float, amount: float, fee: float):
+    """Validation helper for balance checks."""
+    if balance < (amount + fee):
+        raise InsufficientFundsError(amount + fee, balance)
