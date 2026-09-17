@@ -1,27 +1,33 @@
-import re
+import time
+import functools
+import logging
+from typing import Callable, Any
 
-def validate_address(address: str) -> bool:
-    """Validate cryptocurrency wallet address format."""
-    # Pattern for standard hex-based wallet addresses
-    pattern = r'^0x[a-fA-F0-9]{40}$'
-    return bool(re.match(pattern, address))
+logger = logging.getLogger(__name__)
 
-def validate_amount(amount: str) -> bool:
-    """Ensure amount is a positive numerical value."""
-    try:
-        value = float(amount)
-        return value > 0
-    except ValueError:
-        return False
+def retry_on_failure(max_retries: int = 3, delay: float = 1.0):
+    """Decorator to retry network-bound operations."""
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    last_exception = e
+                    logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay}s...")
+                    time.sleep(delay)
+            
+            logger.error(f"Operation failed after {max_retries} attempts.")
+            raise last_exception
+        return wrapper
+    return decorator
 
-def process_transaction(address: str, amount: str):
-    """Main loop entry point with input validation."""
-    if not validate_address(address):
-        raise ValueError(f"Invalid wallet address format: {address}")
-    
-    if not validate_amount(amount):
-        raise ValueError(f"Invalid transaction amount: {amount}")
-    
-    # Proceed with transaction logic after validation
-    print(f"Processing transfer of {amount} to {address}")
+@retry_on_failure(max_retries=3, delay=2.0)
+def validate_node_connection(node_url: str) -> bool:
+    """Placeholder for actual network health check."""
+    # Simulating connection check logic for wallet-utility-13
+    if not node_url.startswith("http"): 
+        raise ConnectionError("Invalid node protocol")
     return True
