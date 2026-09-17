@@ -1,29 +1,29 @@
 class WalletError(Exception):
-    """Base exception for all wallet-utility-13 operations."""
+    """Base exception for wallet-utility-13."""
     pass
 
-class InsufficientBalanceError(WalletError):
-    """Raised when transaction amount exceeds available balance."""
+class InsufficientFundsError(WalletError):
+    """Raised when wallet balance is insufficient for transaction."""
+    def __init__(self, requested: float, available: float):
+        self.message = f"Insufficient funds: requested {requested}, available {available}"
+        super().__init__(self.message)
+
+class ConnectionTimeoutError(WalletError):
+    """Raised when node connection fails."""
     pass
 
 class InvalidAddressError(WalletError):
-    """Raised when the provided cryptocurrency address format is invalid."""
+    """Raised when address format is invalid."""
+    def __init__(self, address: str):
+        self.message = f"Invalid crypto address format: {address}"
+        super().__init__(self.message)
+
+class SignatureError(WalletError):
+    """Raised when transaction signing fails."""
     pass
 
-class NetworkConnectionError(WalletError):
-    """Raised when RPC or network requests fail."""
-    pass
-
-class TransactionSigningError(WalletError):
-    """Raised when private key signing operations fail."""
-    pass
-
-class ConfigurationError(WalletError):
-    """Raised when environment variables or config files are missing."""
-    pass
-
-def handle_exception(e: Exception) -> str:
-    """Format exception message for logger output."""
-    if isinstance(e, WalletError):
-        return f"[WalletError] {e}"
-    return f"[UnexpectedError] {type(e).__name__}: {str(e)}"
+class RateLimitError(WalletError):
+    """Raised when API rate limits are exceeded."""
+    def __init__(self, retry_after: int):
+        self.message = f"Rate limit exceeded. Retry in {retry_after} seconds"
+        super().__init__(self.message)
