@@ -1,29 +1,24 @@
 class WalletError(Exception):
-    """Base exception for wallet-utility-13."""
+    """Base exception for all wallet operations."""
     pass
 
 class InsufficientFundsError(WalletError):
-    """Raised when wallet balance is insufficient for transaction."""
-    def __init__(self, requested: float, available: float):
-        self.message = f"Insufficient funds: requested {requested}, available {available}"
-        super().__init__(self.message)
-
-class ConnectionTimeoutError(WalletError):
-    """Raised when node connection fails."""
-    pass
+    """Raised when account balance is below transaction cost."""
+    def __init__(self, required, actual):
+        super().__init__(f"Required {required}, but found {actual}")
 
 class InvalidAddressError(WalletError):
-    """Raised when address format is invalid."""
-    def __init__(self, address: str):
-        self.message = f"Invalid crypto address format: {address}"
-        super().__init__(self.message)
+    """Raised when a blockchain address format is malformed."""
+    pass
 
-class SignatureError(WalletError):
-    """Raised when transaction signing fails."""
+class NetworkTimeoutError(WalletError):
+    """Raised when blockchain RPC requests exceed timeout."""
+    pass
+
+class SigningError(WalletError):
+    """Raised when cryptographic signature generation fails."""
     pass
 
 class RateLimitError(WalletError):
-    """Raised when API rate limits are exceeded."""
-    def __init__(self, retry_after: int):
-        self.message = f"Rate limit exceeded. Retry in {retry_after} seconds"
-        super().__init__(self.message)
+    """Raised when hitting node provider rate limits."""
+    pass
