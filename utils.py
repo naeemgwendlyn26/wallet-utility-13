@@ -1,24 +1,31 @@
-import decimal
-from typing import Union, Optional
+import time
+import logging
+from functools import wraps
+from typing import Callable, Any
 
-def format_crypto_amount(amount: Union[int, float, str], decimals: int = 8) -> str:
-    """Normalizes crypto amounts to string with fixed precision."""
-    try:
-        d_amount = decimal.Decimal(str(amount))
-        return format(d_amount, f'.{decimals}f').rstrip('0').rstrip('.')
-    except (decimal.InvalidOperation, ValueError):
-        return "0"
+logger = logging.getLogger(__name__)
 
-def validate_address(address: str, chain_prefix: str = "0x") -> bool:
-    """Checks basic crypto address formatting."""
-    if not isinstance(address, str):
-        return False
-    return address.startswith(chain_prefix) and len(address) == 42
-
-def wei_to_ether(wei: Union[int, str]) -> float:
-    """Converts smallest unit to standard unit."""
-    return float(decimal.Decimal(str(wei)) / decimal.Decimal("1000000000000000000"))
-
-def calculate_fee(amount: float, fee_rate: float) -> float:
-    """Calculates network transaction fee based on rate."""
-    return round(amount * fee_rate, 10)
+def retry_on_failure(max_attempts: int = 3, delay: float = 1.0):
+    """Decorator for retrying network operations with exponential backoff."""
+    def decorator(func: Callable):
+        @wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            last_exception = None
+            current_delay = delay
+            
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_exception = e
+                    logger.warning(f"Attempt {attempt} failed: {e}")
+                    
+                    if attempt < max_attempts:
+                        time.sleep(current_delay)
+                        current_delay *= 2
+            
+            logger.error(f"Operation failed after {max_attempts} attempts")
+            raise last_exception
+            
+        return wrapper
+    return decorator
