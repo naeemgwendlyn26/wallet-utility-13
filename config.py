@@ -1,39 +1,30 @@
 import os
-import logging
-from typing import Dict, Any
+from typing import Any, Dict
 
-class ConfigError(Exception):
-    """Custom exception for wallet configuration failures."""
-    pass
+DEFAULT_CONFIG = {
+    "NETWORK": "mainnet",
+    "RPC_URL": "https://rpc.ankr.com/eth",
+    "RETRY_ATTEMPTS": 3,
+    "TIMEOUT_SECONDS": 30,
+    "LOG_LEVEL": "INFO"
+}
 
-def load_wallet_config() -> Dict[str, Any]:
-    """Load and validate environment configurations."""
-    required_vars = ['RPC_URL', 'WALLET_ADDRESS', 'NETWORK_ID']
-    config = {}
-
-    try:
-        for var in required_vars:
-            value = os.getenv(var)
-            if not value:
-                raise ConfigError(f"Missing required environment variable: {var}")
-            config[var] = value
-            
-        # Validate network identifier format
-        if not config['NETWORK_ID'].isdigit():
-            raise ConfigError("NETWORK_ID must be a numeric string")
-            
-    except ConfigError as e:
-        logging.error(f"Configuration failure: {e}")
-        raise
-    except Exception as e:
-        logging.critical(f"Unexpected configuration error: {e}")
-        raise ConfigError("Internal configuration load failure") from e
-
+def load_config() -> Dict[str, Any]:
+    """Loads configuration from environment variables with safe defaults."""
+    config = DEFAULT_CONFIG.copy()
+    
+    # Override defaults with environment variables if present
+    for key in config:
+        env_value = os.getenv(key)
+        if env_value is not None:
+            # Attempt type casting based on default types
+            expected_type = type(config[key])
+            try:
+                config[key] = expected_type(env_value)
+            except (ValueError, TypeError):
+                continue
+                
     return config
 
-# Initialize global configuration safely
-try:
-    SETTINGS = load_wallet_config()
-except ConfigError:
-    SETTINGS = {}
-    logging.warning("Wallet utility running in unconfigured state")
+# Instantiate active configuration
+settings = load_config()
