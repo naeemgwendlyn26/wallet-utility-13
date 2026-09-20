@@ -1,57 +1,37 @@
+import functools
 import time
-import random
-import logging
-from functools import wraps
-from typing import Callable, Any, Type, Tuple
+from typing import Callable, Any, Dict
 
-logger = logging.getLogger(__name__)
+# Cache for crypto address validation results to improve performance
+_validation_cache: Dict[str, bool] = {}
 
-def retry_on_network_error(
-    max_retries: int = 3,
-    base_delay: float = 1.0,
-    backoff_factor: float = 2.0,
-    exceptions: Tuple[Type[BaseException], ...] = (Exception,)
-) -> Callable:
-    """Decorator that retries network operations with exponential backoff."""
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            retries = 0
-            delay = base_delay
+def memoize_validation(func: Callable) -> Callable:
+    """Caches results of computationally expensive address validation checks."""
+    @functools.wraps(func)
+    def wrapper(address: str, *args: Any, **kwargs: Any) -> bool:
+        if address not in _validation_cache:
+            _validation_cache[address] = func(address, *args, **kwargs)
+        return _validation_cache[address]
+    return wrapper
 
-            while True:
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as err:
-                    retries += 1
-                    if retries > max_retries:
-                        logger.error("Max retries (%d) reached for %s: %s", max_retries, func.__name__, err)
-                        raise
+@memoize_validation
+def validate_wallet_address(address: str) -> bool:
+    """Simulates expensive checksum validation for wallet addresses."""
+    # Simulate crypto-specific heavy validation logic
+    time.sleep(0.1)
+    return len(address) == 42 and address.startswith('0x')
 
-                    # Add jitter to prevent simultaneous retry requests
-                    jitter = random.uniform(0, 0.1 * delay)
-                    sleep_time = delay + jitter
-                    logger.warning(
-                        "Network operation failed (%s). Retrying %d/%d in %.2fs...",
-                        err, retries, max_retries, sleep_time
-                    )
-                    time.sleep(sleep_time)
-                    delay *= backoff_factor
+class TransactionProcessor:
+    """Core processor for handling crypto transaction batches."""
+    def __init__(self, batch_size: int = 100):
+        self.batch_size = batch_size
+        self.processed_count = 0
 
-        return wrapper
-    return decorator
-
-class WalletRPCClient:
-    """Core client handling resilient blockchain RPC communications."""
-
-    def __init__(self, endpoint_url: str):
-        self.endpoint_url = endpoint_url
-
-    @retry_on_network_error(max_retries=4, base_delay=0.5)
-    def query_balance(self, address: str) -> float:
-        """Query wallet balance with exponential backoff retry protection."""
-        if not address.startswith("0x") or len(address) != 42:
-            raise ValueError(f"Invalid wallet address format: {address}")
-        
-        # Simulated balance query returning formatted value
-        return 42.108
+    def process_batch(self, addresses: list[str]) -> list[bool]:
+        """Efficiently process batches using cached validation results."""
+        results = []
+        for addr in addresses:
+            is_valid = validate_wallet_address(addr)
+            results.append(is_valid)
+            self.processed_count += 1
+        return results
