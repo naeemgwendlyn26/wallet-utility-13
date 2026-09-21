@@ -1,33 +1,31 @@
 import logging
-from logging.handlers import RotatingFileHandler
-import os
+import sys
+from pathlib import Path
 
-def setup_logger(name: str, log_file: str = 'wallet.log') -> logging.Logger:
-    """
-    Configures a rotating file logger for wallet-utility-13.
-    Limits file size to 5MB with 3 backup rotations.
-    """
+def get_logger(name: str, log_file: str = 'wallet.log') -> logging.Logger:
+    """Configures a standard logger for wallet operations."""
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
 
-    # Prevent duplicate handlers if setup is called multiple times
-    if not logger.handlers:
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
 
-        # 5MB per file, max 3 files
-        handler = RotatingFileHandler(
-            log_file, 
-            maxBytes=5*1024*1024, 
-            backupCount=3
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+    # Console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
 
-        # Add console output for development visibility
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
+    # File handler
+    file_path = Path(log_file)
+    file_handler = logging.FileHandler(file_path)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
 
     return logger
+
+# Global logger instance for the utility
+logger = get_logger('wallet-utility-13')
+
+if __name__ == '__main__':
+    logger.info('Logger initialized for crypto utility operations')
