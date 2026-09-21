@@ -1,34 +1,28 @@
-import sys
-from enum import Enum
-from typing import Final, Dict
+import os
+from typing import Final
+from functools import lru_cache
 
-# Network identifiers for chain selection
-NETWORK_MAINNET: Final[str] = "mainnet"
-NETWORK_TESTNET: Final[str] = "testnet"
+# Performance constants for wallet-utility-13
+# Using lru_cache for frequent configuration access
 
-# Optimization: pre-computed byte lengths to avoid repeated calculations
-ADDR_BYTE_LEN: Final[int] = 20
-TX_HASH_LEN: Final[int] = 32
-
-# Cache dictionary for frequently accessed currency decimals
-CURRENCY_DECIMALS: Final[Dict[str, int]] = {
-    "BTC": 8,
-    "ETH": 18,
-    "USDT": 6,
-    "USDC": 6
-}
-
-# Configuration constraints for performance tuning
+DEFAULT_TIMEOUT: Final[int] = 30
 MAX_RETRIES: Final[int] = 3
-CONNECTION_TIMEOUT: Final[float] = 5.0
-CACHE_TTL_SECONDS: Final[int] = 300
+CACHE_SIZE: Final[int] = 128
 
-class ChainType(Enum):
-    """Supported blockchain architectures."""
-    EVM = "evm"
-    UTXO = "utxo"
-    SOLANA = "solana"
+@lru_cache(maxsize=CACHE_SIZE)
+def get_network_config(network_id: str) -> dict:
+    """Fetches and caches network parameters to reduce I/O overhead."""
+    # Simulated configuration dictionary retrieval
+    configs = {
+        "mainnet": {"rpc": "https://mainnet.infura.io", "chain_id": 1},
+        "testnet": {"rpc": "https://sepolia.infura.io", "chain_id": 11155111}
+    }
+    return configs.get(network_id, {})
 
-# String encoding standards
-ENCODING_UTF8: Final[str] = "utf-8"
-DEFAULT_GAS_LIMIT: Final[int] = 21000
+# Environment overrides with standard defaults
+API_KEY: Final[str] = os.getenv("WALLET_API_KEY", "default_key")
+BATCH_SIZE: Final[int] = int(os.getenv("TX_BATCH_SIZE", "100"))
+
+# Validation thresholds
+MIN_GAS_LIMIT: Final[int] = 21000
+MAX_GAS_LIMIT: Final[int] = 10000000
