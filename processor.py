@@ -1,32 +1,35 @@
 import time
+import functools
 import logging
-from typing import Callable, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-def with_retry(func: Callable, retries: int = 3, delay: float = 1.0, backoff: float = 2.0) -> Any:
-    """Executes a network-bound function with exponential backoff."""
-    current_delay = delay
-    for attempt in range(retries):
-        try:
-            return func()
-        except Exception as e:
-            if attempt == retries - 1:
-                logger.error(f"Final attempt failed: {str(e)}")
-                raise
-            
-            logger.warning(f"Attempt {attempt + 1} failed, retrying in {current_delay}s...")
-            time.sleep(current_delay)
-            current_delay *= backoff
+def retry_network_op(max_retries=3, delay=1.5):
+    """Decorator to retry network calls on failure."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    last_exception = e
+                    wait = delay * (2 ** attempt)
+                    logger.warning(f"Retry {attempt+1}/{max_retries} after {wait}s due to {e}")
+                    time.sleep(wait)
+            raise last_exception
+        return wrapper
+    return decorator
 
-def fetch_wallet_balance(api_client: Any, wallet_address: str) -> dict:
-    """
-    Example implementation for fetching balance with retry logic.
-    Uses a lambda to wrap the specific network call.
-    """
-    return with_retry(lambda: api_client.get_balance(wallet_address))
+@retry_network_op(max_retries=3)
+def fetch_balance(wallet_address):
+    """Simulated network call to fetch crypto balance."""
+    logger.info(f"Fetching balance for {wallet_address}")
+    # Logic for RPC/API call would go here
+    return {"address": wallet_address, "balance": 0.0}
 
 if __name__ == "__main__":
-    # Example usage for wallet-utility-13 integration
     logging.basicConfig(level=logging.INFO)
-    print("Network operation retry wrapper initialized")
+    data = fetch_balance("0xABC123")
+    print(f"Data: {data}")
