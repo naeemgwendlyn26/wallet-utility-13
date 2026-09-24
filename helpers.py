@@ -1,43 +1,57 @@
-import time
-import random
-import logging
-from functools import wraps
-from typing import Callable, Any, Tuple, Type
+import re
 
-logger = logging.getLogger("wallet_utility.helpers")
+def satoshi_to_btc(satoshis: int) -> float:
+    """Convert an amount in Satoshis to Bitcoin (BTC).
 
-def retry_with_backoff(
-    retries: int = 3,
-    backoff_in_seconds: float = 1.0,
-    max_exponent: int = 5,
-    exceptions: Tuple[Type[BaseException], ...] = (Exception,)
-) -> Callable:
+    Args:
+        satoshis: The integer amount of Satoshis to convert.
+
+    Returns:
+        The equivalent amount in BTC as a float.
     """
-    Decorator to retry a network-related function call with exponential backoff and jitter.
-    Commonly used in blockchain interactions for handling transient RPC or API failures.
+    if satoshis < 0:
+        raise ValueError("Satoshi amount cannot be negative.")
+    return satoshis / 100_000_000.0
+
+def btc_to_satoshi(btc: float) -> int:
+    """Convert an amount in Bitcoin (BTC) to Satoshis.
+
+    Args:
+        btc: The float amount of BTC to convert.
+
+    Returns:
+        The equivalent amount in Satoshis as an integer.
     """
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            attempt = 0
-            while attempt < retries:
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    attempt += 1
-                    if attempt >= retries:
-                        logger.error(f"Failed {func.__name__} after {retries} attempts: {e}")
-                        raise e
-                    
-                    # Exponential backoff formula with full jitter
-                    sleep_time = (backoff_in_seconds * (2 ** min(attempt, max_exponent)))
-                    jitter = random.uniform(0, 1.0)
-                    total_sleep = sleep_time + jitter
-                    
-                    logger.warning(
-                        f"Retrying {func.__name__} due to: {e}. "
-                        f"Attempt {attempt}/{retries}. Retrying in {total_sleep:.2f}s..."
-                    )
-                    time.sleep(total_sleep)
-        return wrapper
-    return decorator
+    if btc < 0:
+        raise ValueError("BTC amount cannot be negative.")
+    return round(btc * 100_000_000)
+
+def is_valid_evm_address(address: str) -> bool:
+    """Check if the given string is a valid Ethereum/EVM address format.
+
+    This performs a basic hex validation and length check.
+
+    Args:
+        address: The string address to validate.
+
+    Returns:
+        True if the format matches a 40-character hex string prefixed with 0x.
+    """
+    if not isinstance(address, str):
+        return False
+    return bool(re.match(r"^0x[a-fA-F0-9]{40}$", address))
+
+def format_wallet_address(address: str, prefix_len: int = 6, suffix_len: int = 4) -> str:
+    """Format a long wallet address into an abbreviated, user-friendly string.
+
+    Args:
+        address: The full wallet address string.
+        prefix_len: Number of characters to preserve at the start.
+        suffix_len: Number of characters to preserve at the end.
+
+    Returns:
+        The shortened address representation (e.g., 0x1f98...e15a).
+    """
+    if len(address) <= (prefix_len + suffix_len + 3):
+        return address
+    return f"{address[:prefix_len]}...{address[-suffix_len:]}"
