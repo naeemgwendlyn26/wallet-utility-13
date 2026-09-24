@@ -1,26 +1,29 @@
-import hashlib
-import hmac
-from decimal import Decimal
-from typing import Union
+import time
+import functools
+import logging
 
-def format_amount(amount: Union[str, float, int], precision: int = 8) -> Decimal:
-    """Converts raw crypto amounts to standard decimal precision."""
-    return Decimal(str(amount)).quantize(Decimal(f"1.{'0' * precision}"))
+# Configure logger for wallet-utility-13
+logger = logging.getLogger('wallet_utility')
 
-def generate_signature(api_secret: str, message: str) -> str:
-    """Creates HMAC-SHA256 signature for API authentication."""
-    return hmac.new(
-        api_secret.encode('utf-8'),
-        message.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
-
-def is_valid_address(address: str, prefix: str = '0x') -> bool:
-    """Simple validation for standard hex-based crypto addresses."""
-    if not address.startswith(prefix):
-        return False
-    return len(address) == 42 and all(c in '0123456789abcdefABCDEF' for c in address[2:])
-
-def wei_to_ether(wei: int) -> Decimal:
-    """Converts smallest unit to base currency unit."""
-    return Decimal(wei) / Decimal(10**18)
+def retry_network_operation(max_retries=3, delay=2):
+    """
+    Decorator to retry network functions on failure with exponential backoff.
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            current_delay = delay
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    if attempt == max_retries - 1:
+                        logger.error(f"Final attempt failed for {func.__name__}: {e}")
+                        raise
+                    
+                    logger.warning(f"Attempt {attempt + 1} failed, retrying in {current_delay}s...")
+                    time.sleep(current_delay)
+                    current_delay *= 2
+            return None
+        return wrapper
+    return decorator
