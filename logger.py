@@ -1,36 +1,32 @@
 import logging
-import sys
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
+import os
 
-def setup_logger(name: str = 'wallet-utility-13', log_file: str = 'app.log') -> logging.Logger:
-    """Configures a rotating file logger for the wallet utility."""
+def setup_logger(name='wallet-utility-13', log_file='app.log', level=logging.INFO):
+    """Initializes a rotating file logger for crypto operations."""
     logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(level)
 
-    # Prevent duplicate handlers if logger is re-initialized
-    if logger.hasHandlers():
-        logger.handlers.clear()
+    # Prevent duplicate handlers if function is called multiple times
+    if not logger.handlers:
+        # Format: timestamp - name - level - message
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-    # Ensure logs directory exists
-    log_path = Path(log_file)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
+        # Rotation: 5MB per file, keep 3 backups
+        file_handler = RotatingFileHandler(
+            log_file, 
+            maxBytes=5 * 1024 * 1024, 
+            backupCount=3
+        )
+        file_handler.setFormatter(formatter)
+        
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
 
-    # Create formatter
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-
-    # Rotating file handler: 5MB per file, keep 3 backups
-    file_handler = RotatingFileHandler(
-        log_file, maxBytes=5*1024*1024, backupCount=3
-    )
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-
-    # Stream handler for console output
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
 
     return logger
+
+# Instantiate core application logger
+logger = setup_logger()
