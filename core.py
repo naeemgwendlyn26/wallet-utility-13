@@ -1,25 +1,27 @@
-import hashlib
-import base58
+import time
+import functools
+import requests
+from typing import Callable, Any
 
-def generate_address_checksum(pubkey_bytes: bytes) -> str:
-    """Generates a base58 address for a given public key."""
-    sha256_hash = hashlib.sha256(pubkey_bytes).digest()
-    ripemd160_hash = hashlib.new('ripemd160', sha256_hash).digest()
-    return base58.b58encode_check(ripemd160_hash).decode('utf-8')
+def retry_network_call(max_retries: int = 3, delay: float = 2.0) -> Callable:
+    """Decorator to retry network requests on failure."""
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except (requests.exceptions.RequestException, ConnectionError) as e:
+                    last_exception = e
+                    time.sleep(delay * (attempt + 1))
+            raise last_exception
+        return wrapper
+    return decorator
 
-def validate_transaction_signature(signature: bytes, message: bytes, public_key: bytes) -> bool:
-    """Verifies ECDSA signature integrity."""
-    from ecdsa import VerifyingKey, SECP256k1
-    try:
-        vk = VerifyingKey.from_string(public_key, curve=SECP256k1)
-        return vk.verify(signature, message)
-    except Exception:
-        return False
-
-def format_satoshi_to_btc(satoshi_amount: int) -> float:
-    """Converts satoshi integer to decimal btc."""
-    return float(satoshi_amount) / 100_000_000
-
-def calculate_fee(bytes_size: int, sat_per_byte: int) -> int:
-    """Calculates total transaction fee in satoshis."""
-    return bytes_size * sat_per_byte
+@retry_network_call(max_retries=3, delay=1.0)
+def fetch_wallet_balance(api_url: str, address: str) -> dict:
+    """Fetch wallet balance with built-in retry logic."""
+    response = requests.get(f"{api_url}/balance/{address}", timeout=10)
+    response.raise_for_status()
+    return response.json()
