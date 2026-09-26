@@ -1,30 +1,29 @@
 import os
+import json
 from typing import Any, Dict
 
 DEFAULT_CONFIG = {
-    "NETWORK": "mainnet",
-    "RPC_URL": "https://rpc.ankr.com/eth",
-    "RETRY_ATTEMPTS": 3,
-    "TIMEOUT_SECONDS": 30,
-    "LOG_LEVEL": "INFO"
+    "network": "mainnet",
+    "timeout": 30,
+    "retry_attempts": 3,
+    "gas_limit": 21000
 }
 
-def load_config() -> Dict[str, Any]:
-    """Loads configuration from environment variables with safe defaults."""
+def load_config(config_path: str = "config.json") -> Dict[str, Any]:
+    """Loads configuration from file with fallback to defaults."""
     config = DEFAULT_CONFIG.copy()
     
-    # Override defaults with environment variables if present
-    for key in config:
-        env_value = os.getenv(key)
-        if env_value is not None:
-            # Attempt type casting based on default types
-            expected_type = type(config[key])
-            try:
-                config[key] = expected_type(env_value)
-            except (ValueError, TypeError):
-                continue
-                
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r") as f:
+                user_config = json.load(f)
+                config.update(user_config)
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Warning: failed to load {config_path}: {e}. Using defaults.")
+            
     return config
 
-# Instantiate active configuration
-settings = load_config()
+def get_config_value(key: str, default: Any = None) -> Any:
+    """Fetches specific setting from active configuration."""
+    full_config = load_config()
+    return full_config.get(key, default)
