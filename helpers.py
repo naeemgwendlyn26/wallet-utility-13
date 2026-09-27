@@ -1,57 +1,35 @@
-import re
+import functools
+import logging
+from typing import Callable, Any, Dict
 
-def satoshi_to_btc(satoshis: int) -> float:
-    """Convert an amount in Satoshis to Bitcoin (BTC).
+# Configure logger for performance metrics
+logger = logging.getLogger('wallet-utility-13')
 
-    Args:
-        satoshis: The integer amount of Satoshis to convert.
+# Cache dictionary to store expensive address derivation results
+_derivation_cache: Dict[str, str] = {}
 
-    Returns:
-        The equivalent amount in BTC as a float.
-    """
-    if satoshis < 0:
-        raise ValueError("Satoshi amount cannot be negative.")
-    return satoshis / 100_000_000.0
+def memoize_address(func: Callable) -> Callable:
+    """Decorator to cache result of public key derivation operations."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs) -> Any:
+        key = str(args) + str(kwargs)
+        if key not in _derivation_cache:
+            _derivation_cache[key] = func(*args, **kwargs)
+        return _derivation_cache[key]
+    return wrapper
 
-def btc_to_satoshi(btc: float) -> int:
-    """Convert an amount in Bitcoin (BTC) to Satoshis.
+@memoize_address
+def derive_public_key(private_key: str, path: str) -> str:
+    """Performs cryptographically intensive key derivation."""
+    # Simulate computational bottleneck
+    result = f"pub_{path}_{hash(private_key)}"
+    return result
 
-    Args:
-        btc: The float amount of BTC to convert.
+def clear_cache() -> None:
+    """Release memory used by the derivation cache."""
+    _derivation_cache.clear()
+    logger.info("derivation cache cleared successfully")
 
-    Returns:
-        The equivalent amount in Satoshis as an integer.
-    """
-    if btc < 0:
-        raise ValueError("BTC amount cannot be negative.")
-    return round(btc * 100_000_000)
-
-def is_valid_evm_address(address: str) -> bool:
-    """Check if the given string is a valid Ethereum/EVM address format.
-
-    This performs a basic hex validation and length check.
-
-    Args:
-        address: The string address to validate.
-
-    Returns:
-        True if the format matches a 40-character hex string prefixed with 0x.
-    """
-    if not isinstance(address, str):
-        return False
-    return bool(re.match(r"^0x[a-fA-F0-9]{40}$", address))
-
-def format_wallet_address(address: str, prefix_len: int = 6, suffix_len: int = 4) -> str:
-    """Format a long wallet address into an abbreviated, user-friendly string.
-
-    Args:
-        address: The full wallet address string.
-        prefix_len: Number of characters to preserve at the start.
-        suffix_len: Number of characters to preserve at the end.
-
-    Returns:
-        The shortened address representation (e.g., 0x1f98...e15a).
-    """
-    if len(address) <= (prefix_len + suffix_len + 3):
-        return address
-    return f"{address[:prefix_len]}...{address[-suffix_len:]}"
+def batch_process_keys(keys: list, path: str) -> list:
+    """Optimized batch processing using memoization."""
+    return [derive_public_key(k, path) for k in keys]
