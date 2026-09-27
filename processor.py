@@ -1,34 +1,47 @@
-import functools
-from typing import Dict, List, Any
+import time
+import random
+import logging
+from typing import Callable, Any, Tuple
 
-# Using a cache to prevent redundant cryptographic validation calls
-@functools.lru_cache(maxsize=1024)
-def validate_transaction_signature(tx_hash: str, public_key: str) -> bool:
-    """Perform computationally expensive ECDSA verification."""
-    # Simulated cryptographic verification logic
-    return len(tx_hash) > 0 and len(public_key) > 0
+logger = logging.getLogger(__name__)
 
-class TransactionProcessor:
-    def __init__(self):
-        self.processed_txs = set()
 
-    def process_batch(self, transactions: List[Dict[str, Any]]) -> List[str]:
-        """Optimized batch processing using set lookups and caching."""
-        results = []
-        for tx in transactions:
-            tx_id = tx.get("id")
-            
-            # Prevent duplicate processing
-            if tx_id in self.processed_txs:
-                continue
-            
-            # Efficient signature verification with lru_cache
-            if validate_transaction_signature(tx.get("hash", ""), tx.get("key", "")):
-                self.processed_txs.add(tx_id)
-                results.append(tx_id)
-        
-        # Cleanup memory periodically
-        if len(self.processed_txs) > 5000:
-            self.processed_txs.clear()
-            
-        return results
+class NetworkProcessor:
+    """Handles blockchain network requests with configurable exponential backoff."""
+
+    def __init__(self, max_retries: int = 4, base_delay: float = 1.0, max_delay: float = 12.0):
+        self.max_retries = max_retries
+        self.base_delay = base_delay
+        self.max_delay = max_delay
+
+    def execute_with_retry(
+        self,
+        func: Callable[..., Any],
+        *args: Any,
+        retry_exceptions: Tuple[type[Exception], ...] = (ConnectionError, TimeoutError),
+        **kwargs: Any
+    ) -> Any:
+        """Executes a network call, retrying on transient errors with jittered backoff."""
+        attempt = 0
+        while True:
+            try:
+                return func(*args, **kwargs)
+            except retry_exceptions as err:
+                attempt += 1
+                if attempt >= self.max_retries:
+                    logger.error(f"Network request failed permanently after {attempt} attempts: {err}")
+                    raise err
+
+                # Calculate backoff duration with full jitter
+                backoff = min(self.max_delay, self.base_delay * (2 ** (attempt - 1)))
+                delay = random.uniform(0, backoff)
+                
+                logger.warning(
+                    f"RPC request failed ({err}). Retrying in {delay:.2f}s "
+                    f"[Attempt {attempt}/{self.max_retries}]"
+                )
+                time.sleep(delay)
+
+    def query_node_data(self, rpc_client: Any, method: str, params: list) -> dict:
+        """Queries a crypto RPC node using retry protection."""
+        return self.execute_with_retry(rpc_client.send_request, method, params)
