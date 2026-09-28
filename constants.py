@@ -1,28 +1,29 @@
-import os
-from typing import Final
-from functools import lru_cache
+from typing import Final, Dict
 
-# Performance constants for wallet-utility-13
-# Using lru_cache for frequent configuration access
+# Configuration constants for crypto wallet operations
+BLOCKCHAIN_NETWORKS: Final[list[str]] = ["ethereum", "bitcoin", "solana", "polygon"]
 
-DEFAULT_TIMEOUT: Final[int] = 30
-MAX_RETRIES: Final[int] = 3
-CACHE_SIZE: Final[int] = 128
+# Default transaction fee limits in Gwei or Satoshis
+DEFAULT_GAS_LIMIT: Final[int] = 21000
+MAX_RETRY_ATTEMPTS: Final[int] = 3
 
-@lru_cache(maxsize=CACHE_SIZE)
-def get_network_config(network_id: str) -> dict:
-    """Fetches and caches network parameters to reduce I/O overhead."""
-    # Simulated configuration dictionary retrieval
-    configs = {
-        "mainnet": {"rpc": "https://mainnet.infura.io", "chain_id": 1},
-        "testnet": {"rpc": "https://sepolia.infura.io", "chain_id": 11155111}
-    }
-    return configs.get(network_id, {})
+# Currency precision mapping for wallet UI display
+CURRENCY_PRECISION: Final[Dict[str, int]] = {
+    "BTC": 8,
+    "ETH": 18,
+    "SOL": 9,
+    "USDC": 6
+}
 
-# Environment overrides with standard defaults
-API_KEY: Final[str] = os.getenv("WALLET_API_KEY", "default_key")
-BATCH_SIZE: Final[int] = int(os.getenv("TX_BATCH_SIZE", "100"))
+# Wallet connection status codes
+STATUS_CONNECTED: Final[str] = "CONNECTED"
+STATUS_DISCONNECTED: Final[str] = "DISCONNECTED"
+STATUS_SYNCING: Final[str] = "SYNCING"
 
-# Validation thresholds
-MIN_GAS_LIMIT: Final[int] = 21000
-MAX_GAS_LIMIT: Final[int] = 10000000
+def get_precision(symbol: str) -> int:
+    """Return the decimal precision for a given currency symbol."""
+    return CURRENCY_PRECISION.get(symbol.upper(), 8)
+
+# API Timeout configuration
+REQUEST_TIMEOUT_SECONDS: Final[float] = 30.0
+API_BASE_URL: Final[str] = "https://api.wallet-utility-13.io/v1"
