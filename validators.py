@@ -1,28 +1,45 @@
 import re
+from typing import Optional
 
-def validate_address(address: str) -> bool:
-    """Validate cryptocurrency address format."""
-    # Basic hex regex for common EVM-compatible addresses
-    pattern = r'^0x[a-fA-F0-9]{40}$'
+def validate_ethereum_address(address: str) -> bool:
+    """
+    Checks if the provided string is a valid hexadecimal Ethereum address.
+
+    Args:
+        address: The hex string to validate.
+
+    Returns:
+        bool: True if format is valid, False otherwise.
+    """
+    pattern = r"^0x[a-fA-F0-9]{40}$"
     return bool(re.match(pattern, address))
 
 def validate_amount(amount: str) -> bool:
-    """Ensure input amount is a positive numeric string."""
+    """
+    Validates that the amount string is a positive numeric decimal.
+
+    Args:
+        amount: The string representation of the crypto amount.
+
+    Returns:
+        bool: True if valid numeric amount, False otherwise.
+    """
     try:
-        value = float(amount)
-        return value > 0
-    except ValueError:
+        val = float(amount)
+        return val > 0
+    except (ValueError, TypeError):
         return False
 
-def process_input(data: dict) -> bool:
-    """Main loop validation logic."""
-    address = data.get("address", "")
-    amount = data.get("amount", "")
+def format_currency_key(asset_symbol: Optional[str]) -> str:
+    """
+    Standardizes asset symbols for internal lookup.
 
-    if not validate_address(address):
-        return False
-    
-    if not validate_amount(str(amount)):
-        return False
-        
-    return True
+    Args:
+        asset_symbol: The ticker symbol or alias.
+
+    Returns:
+        str: Uppercase sanitized ticker or default 'UNKNOWN'.
+    """
+    if not asset_symbol:
+        return "UNKNOWN"
+    return str(asset_symbol).strip().upper()
