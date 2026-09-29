@@ -1,29 +1,33 @@
 from typing import Final, Dict
 
-# Configuration constants for crypto wallet operations
-BLOCKCHAIN_NETWORKS: Final[list[str]] = ["ethereum", "bitcoin", "solana", "polygon"]
+# Network identifier constants
+MAINNET: Final[str] = "mainnet"
+TESTNET: Final[str] = "testnet"
 
-# Default transaction fee limits in Gwei or Satoshis
-DEFAULT_GAS_LIMIT: Final[int] = 21000
-MAX_RETRY_ATTEMPTS: Final[int] = 3
+# Unit conversion factors
+SATOSHIS_PER_BTC: Final[int] = 100_000_000
+WEI_PER_ETH: Final[int] = 10**18
 
-# Currency precision mapping for wallet UI display
-CURRENCY_PRECISION: Final[Dict[str, int]] = {
-    "BTC": 8,
-    "ETH": 18,
-    "SOL": 9,
-    "USDC": 6
+# Supported asset symbols
+ASSET_BTC: Final[str] = "BTC"
+ASSET_ETH: Final[str] = "ETH"
+ASSET_USDT: Final[str] = "USDT"
+
+# API request configuration
+DEFAULT_TIMEOUT: Final[int] = 30
+MAX_RETRIES: Final[int] = 3
+
+# Standardized path keys
+CONFIG_PATH: Final[str] = "/etc/wallet/config.json"
+LOG_DIR: Final[str] = "/var/log/wallet-utility-13/"
+
+# Mapping of chain IDs to native currency
+CHAIN_NATIVE_MAP: Final[Dict[int, str]] = {
+    1: ASSET_ETH,
+    56: "BNB",
+    137: "MATIC"
 }
 
-# Wallet connection status codes
-STATUS_CONNECTED: Final[str] = "CONNECTED"
-STATUS_DISCONNECTED: Final[str] = "DISCONNECTED"
-STATUS_SYNCING: Final[str] = "SYNCING"
-
-def get_precision(symbol: str) -> int:
-    """Return the decimal precision for a given currency symbol."""
-    return CURRENCY_PRECISION.get(symbol.upper(), 8)
-
-# API Timeout configuration
-REQUEST_TIMEOUT_SECONDS: Final[float] = 30.0
-API_BASE_URL: Final[str] = "https://api.wallet-utility-13.io/v1"
+# Decimal precision settings
+DEFAULT_PRECISION: Final[int] = 8
+FEE_PRECISION: Final[int] = 18
