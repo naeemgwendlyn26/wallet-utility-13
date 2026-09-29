@@ -1,45 +1,28 @@
 import re
-from typing import Optional
+from typing import Any, Dict, Optional
 
-def validate_ethereum_address(address: str) -> bool:
-    """
-    Checks if the provided string is a valid hexadecimal Ethereum address.
-
-    Args:
-        address: The hex string to validate.
-
-    Returns:
-        bool: True if format is valid, False otherwise.
-    """
-    pattern = r"^0x[a-fA-F0-9]{40}$"
-    return bool(re.match(pattern, address))
-
-def validate_amount(amount: str) -> bool:
-    """
-    Validates that the amount string is a positive numeric decimal.
-
-    Args:
-        amount: The string representation of the crypto amount.
-
-    Returns:
-        bool: True if valid numeric amount, False otherwise.
-    """
-    try:
-        val = float(amount)
-        return val > 0
-    except (ValueError, TypeError):
+def validate_wallet_address(address: str) -> bool:
+    """Validate cryptocurrency address format."""
+    if not isinstance(address, str) or len(address) < 26 or len(address) > 35:
         return False
+    return bool(re.match(r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$', address))
 
-def format_currency_key(asset_symbol: Optional[str]) -> str:
-    """
-    Standardizes asset symbols for internal lookup.
+def validate_transaction_payload(payload: Dict[str, Any]) -> Optional[str]:
+    """Verify structure and values of transaction data."""
+    required_fields = ['sender', 'recipient', 'amount']
+    
+    for field in required_fields:
+        if field not in payload:
+            return f'missing field: {field}'
+            
+    if not isinstance(payload['amount'], (int, float)) or payload['amount'] <= 0:
+        return 'invalid transaction amount'
+        
+    if not validate_wallet_address(payload['sender']) or not validate_wallet_address(payload['recipient']):
+        return 'invalid wallet address format'
+        
+    return None
 
-    Args:
-        asset_symbol: The ticker symbol or alias.
-
-    Returns:
-        str: Uppercase sanitized ticker or default 'UNKNOWN'.
-    """
-    if not asset_symbol:
-        return "UNKNOWN"
-    return str(asset_symbol).strip().upper()
+def sanitize_input(data: str) -> str:
+    """Remove dangerous characters from user input."""
+    return re.sub(r'[^a-zA-Z0-9]', '', data)
