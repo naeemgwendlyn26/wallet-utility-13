@@ -1,35 +1,31 @@
-import functools
-import logging
-from typing import Callable, Any, Dict
+from typing import Dict, Any, Optional
+import decimal
 
-# Configure logger for performance metrics
-logger = logging.getLogger('wallet-utility-13')
+def format_crypto_amount(amount: str, decimals: int = 18) -> decimal.Decimal:
+    """Converts raw string amount from blockchain to human-readable decimal."""
+    try:
+        return decimal.Decimal(amount) / decimal.Decimal(10 ** decimals)
+    except (decimal.InvalidOperation, ValueError):
+        return decimal.Decimal('0')
 
-# Cache dictionary to store expensive address derivation results
-_derivation_cache: Dict[str, str] = {}
+def sanitize_address(address: str) -> str:
+    """Standardizes ethereum-like addresses to checksum lowercase format."""
+    return address.strip().lower()
 
-def memoize_address(func: Callable) -> Callable:
-    """Decorator to cache result of public key derivation operations."""
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs) -> Any:
-        key = str(args) + str(kwargs)
-        if key not in _derivation_cache:
-            _derivation_cache[key] = func(*args, **kwargs)
-        return _derivation_cache[key]
-    return wrapper
+def get_gas_price_multiplier(priority: str = 'medium') -> float:
+    """Calculates multiplier for transaction gas fees based on network congestion."""
+    multipliers = {
+        'low': 1.0,
+        'medium': 1.2,
+        'high': 1.5
+    }
+    return multipliers.get(priority.lower(), 1.2)
 
-@memoize_address
-def derive_public_key(private_key: str, path: str) -> str:
-    """Performs cryptographically intensive key derivation."""
-    # Simulate computational bottleneck
-    result = f"pub_{path}_{hash(private_key)}"
-    return result
+def validate_tx_payload(data: Dict[str, Any]) -> bool:
+    """Ensures all required fields exist for wallet transaction submission."""
+    required_fields = ['to', 'value', 'data']
+    return all(field in data for field in required_fields)
 
-def clear_cache() -> None:
-    """Release memory used by the derivation cache."""
-    _derivation_cache.clear()
-    logger.info("derivation cache cleared successfully")
-
-def batch_process_keys(keys: list, path: str) -> list:
-    """Optimized batch processing using memoization."""
-    return [derive_public_key(k, path) for k in keys]
+def calculate_fee(gas_limit: int, gas_price_wei: int) -> int:
+    """Determines transaction fee in wei given gas limits and prices."""
+    return gas_limit * gas_price_wei
