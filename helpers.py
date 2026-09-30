@@ -1,31 +1,33 @@
-from typing import Dict, Any, Optional
 import decimal
+from typing import Union
 
-def format_crypto_amount(amount: str, decimals: int = 18) -> decimal.Decimal:
-    """Converts raw string amount from blockchain to human-readable decimal."""
+def format_crypto_amount(amount: Union[str, float, int], decimals: int = 8) -> str:
+    """Format crypto balance to a string with fixed precision."""
     try:
-        return decimal.Decimal(amount) / decimal.Decimal(10 ** decimals)
+        d_amount = decimal.Decimal(str(amount))
+        quantizer = decimal.Decimal('1.' + '0' * decimals)
+        formatted = d_amount.quantize(quantizer, rounding=decimal.ROUND_DOWN)
+        return format(formatted, f'f')
     except (decimal.InvalidOperation, ValueError):
-        return decimal.Decimal('0')
+        return "0.00000000"
 
-def sanitize_address(address: str) -> str:
-    """Standardizes ethereum-like addresses to checksum lowercase format."""
-    return address.strip().lower()
+def calculate_tx_fee(amount: float, rate: float, min_fee: float = 0.0001) -> float:
+    """Calculate transaction fee based on percentage rate and floor."""
+    fee = amount * rate
+    return max(fee, min_fee)
 
-def get_gas_price_multiplier(priority: str = 'medium') -> float:
-    """Calculates multiplier for transaction gas fees based on network congestion."""
-    multipliers = {
-        'low': 1.0,
-        'medium': 1.2,
-        'high': 1.5
+def validate_address_format(address: str, chain: str) -> bool:
+    """Simple validator for address lengths per blockchain protocol."""
+    patterns = {
+        "BTC": (26, 35),
+        "ETH": (42, 42)
     }
-    return multipliers.get(priority.lower(), 1.2)
+    if chain not in patterns:
+        return True
+    
+    min_len, max_len = patterns[chain]
+    return min_len <= len(address) <= max_len
 
-def validate_tx_payload(data: Dict[str, Any]) -> bool:
-    """Ensures all required fields exist for wallet transaction submission."""
-    required_fields = ['to', 'value', 'data']
-    return all(field in data for field in required_fields)
-
-def calculate_fee(gas_limit: int, gas_price_wei: int) -> int:
-    """Determines transaction fee in wei given gas limits and prices."""
-    return gas_limit * gas_price_wei
+def to_wei(amount: float) -> int:
+    """Convert ETH denomination to Wei."""
+    return int(decimal.Decimal(str(amount)) * decimal.Decimal(10**18))
