@@ -6,28 +6,32 @@ DEFAULT_CONFIG = {
     "network": "mainnet",
     "timeout": 30,
     "retry_attempts": 3,
-    "rpc_url": "https://rpc.ankr.com/eth"
+    "gas_price_multiplier": 1.2
 }
 
-def load_config(config_path: str = "config.json") -> Dict[str, Any]:
-    """Loads configuration from disk with fallback to defaults."""
+def load_config(filepath: str = "config.json") -> Dict[str, Any]:
+    """
+    Load configuration from json file with fallback to defaults
+    """
     config = DEFAULT_CONFIG.copy()
     
-    if os.path.exists(config_path):
+    if os.path.exists(filepath):
         try:
-            with open(config_path, "r") as f:
+            with open(filepath, "r") as f:
                 user_config = json.load(f)
                 config.update(user_config)
         except (json.JSONDecodeError, IOError) as e:
-            print(f"Warning: failed to load config file: {e}. Using defaults.")
+            print(f"Warning: Could not load config file {filepath}: {e}")
     
     return config
 
-def get_config_value(key: str, default: Any = None) -> Any:
-    """Helper for accessing specific config keys."""
-    config = load_config()
-    return config.get(key, default)
+def get_wallet_env() -> str:
+    """
+    Get environment setting from system or config
+    """
+    return os.getenv("WALLET_ENV", "production")
 
 if __name__ == "__main__":
+    # Example usage for wallet-utility-13
     current_config = load_config()
-    print(f"Loaded wallet configuration: {current_config}")
+    print(f"Loaded config: {current_config}")
