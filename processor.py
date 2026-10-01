@@ -1,47 +1,34 @@
 import time
-import random
 import logging
-from typing import Callable, Any, Tuple
+from typing import Callable, Any
 
 logger = logging.getLogger(__name__)
 
+def retry_network_operation(func: Callable, retries: int = 3, delay: float = 1.0) -> Any:
+    """Executes a network-dependent function with exponential backoff."""
+    last_exception = None
+    
+    for attempt in range(retries):
+        try:
+            return func()
+        except (ConnectionError, TimeoutError) as e:
+            last_exception = e
+            wait_time = delay * (2 ** attempt)
+            logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {wait_time}s...")
+            time.sleep(wait_time)
+        except Exception as e:
+            logger.error(f"Unrecoverable error during network operation: {e}")
+            raise e
+            
+    logger.error(f"Max retries reached. Final exception: {last_exception}")
+    raise last_exception
 
-class NetworkProcessor:
-    """Handles blockchain network requests with configurable exponential backoff."""
-
-    def __init__(self, max_retries: int = 4, base_delay: float = 1.0, max_delay: float = 12.0):
-        self.max_retries = max_retries
-        self.base_delay = base_delay
-        self.max_delay = max_delay
-
-    def execute_with_retry(
-        self,
-        func: Callable[..., Any],
-        *args: Any,
-        retry_exceptions: Tuple[type[Exception], ...] = (ConnectionError, TimeoutError),
-        **kwargs: Any
-    ) -> Any:
-        """Executes a network call, retrying on transient errors with jittered backoff."""
-        attempt = 0
-        while True:
-            try:
-                return func(*args, **kwargs)
-            except retry_exceptions as err:
-                attempt += 1
-                if attempt >= self.max_retries:
-                    logger.error(f"Network request failed permanently after {attempt} attempts: {err}")
-                    raise err
-
-                # Calculate backoff duration with full jitter
-                backoff = min(self.max_delay, self.base_delay * (2 ** (attempt - 1)))
-                delay = random.uniform(0, backoff)
-                
-                logger.warning(
-                    f"RPC request failed ({err}). Retrying in {delay:.2f}s "
-                    f"[Attempt {attempt}/{self.max_retries}]"
-                )
-                time.sleep(delay)
-
-    def query_node_data(self, rpc_client: Any, method: str, params: list) -> dict:
-        """Queries a crypto RPC node using retry protection."""
-        return self.execute_with_retry(rpc_client.send_request, method, params)
+def process_transaction(tx_data: dict, network_call: Callable) -> dict:
+    """
+    Wraps network calls for crypto transactions with retry logic.
+    """
+    try:
+        result = retry_network_operation(lambda: network_call(tx_data))
+        return {"status": "success", "data": result}
+    except Exception as e:
+        return {"status": "failed", "error": str(e)}
