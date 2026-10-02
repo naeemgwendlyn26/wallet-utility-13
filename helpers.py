@@ -1,49 +1,38 @@
 import re
-from typing import Any, Dict, Tuple
+from typing import Optional
 
+def validate_address(address: str) -> bool:
+    """Validate cryptocurrency wallet address format."""
+    # Pattern for standard hex-based addresses
+    pattern = r'^0x[a-fA-F0-9]{40}$'
+    return bool(re.match(pattern, address))
 
-def validate_wallet_address(address: str) -> bool:
-    """Validate Ethereum or Bitcoin style wallet addresses."""
-    if not isinstance(address, str):
-        return False
-    eth_pattern = r"^0x[a-fA-F0-9]{40}$"
-    btc_pattern = r"^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,39}$"
-    return bool(re.match(eth_pattern, address) or re.match(btc_pattern, address))
-
-
-def validate_transaction_payload(payload: Dict[str, Any]) -> Tuple[bool, str]:
-    """Validate input payload structure and data types for crypto operations."""
-    if not isinstance(payload, dict):
-        return False, "Payload must be a valid dictionary"
-
-    required_keys = {"recipient", "amount", "asset"}
-    missing = required_keys - payload.keys()
-    if missing:
-        return False, f"Missing required payload fields: {', '.join(missing)}"
-
-    address = payload.get("recipient")
-    if not validate_wallet_address(str(address)):
-        return False, f"Invalid destination wallet address: {address}"
-
+def validate_amount(amount: float) -> bool:
+    """Ensure transaction amount is positive and non-zero."""
     try:
-        amount = float(payload.get("amount", 0))
-        if amount <= 0:
-            return False, "Transaction amount must be greater than zero"
+        val = float(amount)
+        return val > 0
     except (ValueError, TypeError):
-        return False, "Transaction amount must be a valid numeric value"
+        return False
 
-    asset = payload.get("asset")
-    if not isinstance(asset, str) or len(asset.strip()) == 0:
-        return False, "Asset symbol must be a non-empty string"
+def sanitize_input(data: str) -> Optional[str]:
+    """Remove whitespace and validate basic input bounds."""
+    if not data or not isinstance(data, str):
+        return None
+    
+    cleaned = data.strip()
+    if len(cleaned) < 10:
+        return None
+        
+    return cleaned
 
-    return True, "Payload validation successful"
-
-
-def process_batch_inputs(batch: list) -> list:
-    """Filter and return validated transactions from an input loop stream."""
-    valid_records = []
-    for item in batch:
-        is_valid, _ = validate_transaction_payload(item)
-        if is_valid:
-            valid_records.append(item)
-    return valid_records
+def process_transaction(address: str, amount: float) -> bool:
+    """Core validation logic for the main processing loop."""
+    sanitized = sanitize_input(address)
+    if not sanitized or not validate_address(sanitized):
+        return False
+        
+    if not validate_amount(amount):
+        return False
+        
+    return True
