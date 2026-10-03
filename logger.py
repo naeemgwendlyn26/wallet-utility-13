@@ -1,58 +1,31 @@
 import logging
-import os
 from logging.handlers import RotatingFileHandler
-from typing import Optional
+import os
 
-
-def setup_logger(
-    name: str = "wallet_utility",
-    log_dir: str = "logs",
-    log_file: str = "wallet.log",
-    max_bytes: int = 5 * 1024 * 1024,
-    backup_count: int = 5,
-    level: int = logging.INFO,
-) -> logging.Logger:
-    """Configures and returns a logger instance with rotating file and console output."""
+def setup_logger(name: str, log_file: str = "wallet.log") -> logging.Logger:
+    """Initializes a rotating file logger for crypto operations."""
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    logger.setLevel(logging.INFO)
 
-    # Prevent duplicate handlers if re-initialized
-    if logger.handlers:
-        return logger
+    # Prevent duplicate handlers if logger is re-initialized
+    if not logger.handlers:
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
 
-    # Ensure output log directory exists
-    os.makedirs(log_dir, exist_ok=True)
-    full_log_path = os.path.join(log_dir, log_file)
+        # Rotate files at 5MB, keep 3 backups
+        handler = RotatingFileHandler(
+            log_file, maxBytes=5 * 1024 * 1024, backupCount=3
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
-    # Shared log formatting for wallet transactions and operations
-    formatter = logging.Formatter(
-        "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    # Rotating file handler to manage disk space for heavy logging
-    file_handler = RotatingFileHandler(
-        full_log_path,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-        encoding="utf-8",
-    )
-    file_handler.setLevel(level)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-
-    # Standard output stream handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+        # Add console output for development visibility
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
 
     return logger
 
-
-def get_wallet_logger(module_name: Optional[str] = None) -> logging.Logger:
-    """Retrieves a logger or child logger configured for wallet sub-modules."""
-    base_logger = setup_logger()
-    if module_name:
-        return base_logger.getChild(module_name)
-    return base_logger
+# Instance for global application usage
+wallet_logger = setup_logger("wallet-utility-13")
