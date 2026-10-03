@@ -1,41 +1,39 @@
-import os
 import json
+import os
 from typing import Any, Dict
 
+# Default configuration for wallet-utility-13
 DEFAULT_CONFIG: Dict[str, Any] = {
     "network": "mainnet",
-    "derivation_path": "m/44'/60'/0'/0/0",
-    "rpc_url": "https://cloudflare-eth.com",
-    "request_timeout": 10,
+    "rpc_url": "https://eth-mainnet.g.alchemy.com/v2/your-api-key",
+    "timeout_seconds": 30,
     "max_retries": 3,
-    "enable_logging": True
+    "gas_multiplier": 1.1,
+    "enable_metrics": True,
 }
 
 class ConfigLoader:
-    """Loads configuration from environment variables, files, and defaults."""
-    def __init__(self, filepath: str = None):
+    """Loads and manages configuration for the crypto wallet utility."""
+
+    def __init__(self, config_path: str = "config.json"):
+        self.config_path = config_path
         self.config = DEFAULT_CONFIG.copy()
-        if filepath:
-            self.load_from_file(filepath)
-        self.load_from_env()
+        self.load()
 
-    def load_from_file(self, filepath: str) -> None:
-        """Loads configuration from a JSON file, overriding defaults."""
-        if not os.path.exists(filepath):
-            return
-        try:
-            with open(filepath, "r", encoding="utf-8") as f:
-                file_config = json.load(f)
-                if isinstance(file_config, dict):
-                    for key, val in file_config.items():
-                        self.config[key.lower()] = val
-        except (json.JSONDecodeError, OSError):
-            # Silently fall back to defaults if parsing fails
-            pass
+    def load(self) -> None:
+        """Loads configuration from file and environment variables."""
+        # Load from file if it exists
+        if os.path.exists(self.config_path):
+            try:
+                with open(self.config_path, "r", encoding="utf-8") as f:
+                    file_config = json.load(f)
+                    self.config.update(file_config)
+            except (json.JSONDecodeError, IOError):
+                # Fallback to defaults if file is corrupted
+                pass
 
-    def load_from_env(self) -> None:
-        """Loads configuration from environment variables with wallet prefix."""
-        for key in DEFAULT_CONFIG:
+        # Override with environment variables using WALLET_ prefix
+        for key in self.config:
             env_key = f"WALLET_{key.upper()}"
             env_val = os.getenv(env_key)
             if env_val is not None:
@@ -43,13 +41,12 @@ class ConfigLoader:
                 if isinstance(default_val, bool):
                     self.config[key] = env_val.lower() in ("true", "1", "yes")
                 elif isinstance(default_val, int):
-                    try:
-                        self.config[key] = int(env_val)
-                    except ValueError:
-                        pass
+                    self.config[key] = int(env_val)
+                elif isinstance(default_val, float):
+                    self.config[key] = float(env_val)
                 else:
                     self.config[key] = env_val
 
     def get(self, key: str) -> Any:
-        """Retrieves a config value by key name."""
-        return self.config.get(key.lower())
+        """Retrieves a configuration value."""
+        return self.config.get(key)
