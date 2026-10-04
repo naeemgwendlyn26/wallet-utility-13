@@ -1,29 +1,22 @@
 import re
 
-def validate_address(address: str, chain: str) -> bool:
-    """Validate cryptocurrency address format for supported chains."""
-    if not isinstance(address, str) or len(address) < 26 or len(address) > 42:
+# Regex pattern for standard base58 or hex wallet addresses
+ADDRESS_PATTERN = re.compile(r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^0x[a-fA-F0-9]{40}$')
+
+def validate_wallet_address(address: str) -> bool:
+    """Verify address format against supported blockchain schemes."""
+    if not isinstance(address, str):
         return False
-
-    patterns = {
-        "eth": r"^0x[a-fA-F0-9]{40}$",
-        "btc": r"^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$"
-    }
-
-    pattern = patterns.get(chain.lower())
-    if not pattern:
-        return False
-
-    return bool(re.match(pattern, address))
+    return bool(ADDRESS_PATTERN.match(address))
 
 def validate_amount(amount: float) -> bool:
-    """Ensure transaction amount is positive and within reasonable bounds."""
+    """Ensure transaction amount is positive and non-zero."""
     try:
         val = float(amount)
-        return 0 < val < 1_000_000
+        return val > 0
     except (ValueError, TypeError):
         return False
 
-def sanitize_input(data: dict) -> dict:
-    """Clean dictionary keys and values for processing."""
-    return {k: str(v).strip() for k, v in data.items() if v is not None}
+def sanitize_input(data: str) -> str:
+    """Strip whitespace and normalize input strings."""
+    return data.strip() if data else ""
