@@ -1,28 +1,33 @@
-import hashlib
 import json
+import os
 from typing import Dict, Any, Optional
 
+def load_wallet_config(file_path: str) -> Dict[str, Any]:
+    """Loads and validates crypto wallet configuration from JSON."""
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Configuration file {file_path} not found.")
+    
+    with open(file_path, 'r') as f:
+        config = json.load(f)
+    
+    return config
+
 def sanitize_address(address: str) -> str:
-    """Normalize cryptocurrency address strings for storage."""
+    """Removes whitespace and ensures lowercase for hex addresses."""
     return address.strip().lower()
 
-def generate_checksum(data: Dict[str, Any]) -> str:
-    """Generate a SHA-256 hash for transaction validation."""
-    serialized = json.dumps(data, sort_keys=True)
-    return hashlib.sha256(serialized.encode('utf-8')).hexdigest()
+def format_balance(amount: float, precision: int = 8) -> str:
+    """Formats crypto balance to specified decimal precision."""
+    return f"{amount:.{precision}f}"
 
-def format_amount(amount: float, decimals: int = 8) -> float:
-    """Round crypto values to specified precision."""
-    return round(amount, decimals)
+def validate_network_id(network_id: Any) -> bool:
+    """Checks if network identifier is valid hex or integer."""
+    if isinstance(network_id, int):
+        return network_id > 0
+    if isinstance(network_id, str):
+        return network_id.startswith('0x') and len(network_id) > 2
+    return False
 
-def validate_transaction_payload(payload: Dict[str, Any]) -> bool:
-    """Ensure required fields exist in transaction data."""
-    required_fields = {'from', 'to', 'amount', 'currency'}
-    return all(field in payload for field in required_fields)
-
-def parse_fee_data(fee_str: str) -> Optional[float]:
-    """Convert fee string representation to float."""
-    try:
-        return float(fee_str.replace(' Gwei', '').strip())
-    except (ValueError, AttributeError):
-        return None
+def get_env_var(key: str, default: Optional[str] = None) -> str:
+    """Retrieves environment variable with fallback safety."""
+    return os.getenv(key, default or "")
