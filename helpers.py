@@ -1,38 +1,27 @@
-import re
+import hashlib
+import secrets
 from typing import Optional
 
-def validate_address(address: str) -> bool:
-    """Validate cryptocurrency wallet address format."""
-    # Pattern for standard hex-based addresses
-    pattern = r'^0x[a-fA-F0-9]{40}$'
-    return bool(re.match(pattern, address))
+def generate_secure_entropy(length: int = 32) -> str:
+    """Generates a cryptographically secure hex string."""
+    return secrets.token_hex(length)
 
-def validate_amount(amount: float) -> bool:
-    """Ensure transaction amount is positive and non-zero."""
-    try:
-        val = float(amount)
-        return val > 0
-    except (ValueError, TypeError):
-        return False
+def mask_address(address: str, visible_chars: int = 6) -> str:
+    """Masks a crypto address for UI display purposes."""
+    if len(address) <= visible_chars * 2:
+        return address
+    return f"{address[:visible_chars]}...{address[-visible_chars:]}"
 
-def sanitize_input(data: str) -> Optional[str]:
-    """Remove whitespace and validate basic input bounds."""
-    if not data or not isinstance(data, str):
-        return None
-    
-    cleaned = data.strip()
-    if len(cleaned) < 10:
-        return None
-        
-    return cleaned
+def validate_checksum(address: str) -> bool:
+    """Basic validation for hex-based address formats."""
+    if not address.startswith('0x') or len(address) != 42:
+        return False
+    return all(c in '0123456789abcdefABCDEF' for c in address[2:])
 
-def process_transaction(address: str, amount: float) -> bool:
-    """Core validation logic for the main processing loop."""
-    sanitized = sanitize_input(address)
-    if not sanitized or not validate_address(sanitized):
-        return False
-        
-    if not validate_amount(amount):
-        return False
-        
-    return True
+def derive_hash(data: str) -> str:
+    """Derives a SHA-256 hash for data integrity checks."""
+    return hashlib.sha256(data.encode('utf-8')).hexdigest()
+
+def format_wei_to_eth(wei_value: int) -> float:
+    """Converts raw wei integers to standard ether floats."""
+    return wei_value / 10**18
