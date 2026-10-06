@@ -1,29 +1,35 @@
-import logging
-from typing import Dict, Any
-from .core import CryptoWallet
-from .exceptions import WalletError
+import decimal
+from typing import Dict, Optional
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('wallet-utility-13')
+def format_crypto_amount(amount: str, precision: int = 8) -> str:
+    """Converts raw string amount to standardized decimal format."""
+    try:
+        value = decimal.Decimal(amount)
+        return format(value.normalize(), f'f').rstrip('0').rstrip('.')
+    except (decimal.InvalidOperation, ValueError):
+        return "0"
 
-class WalletHandler:
-    def __init__(self, config: Dict[str, Any]):
-        self.wallet = CryptoWallet(config.get('api_key'))
-        self.timeout = config.get('timeout', 30)
+def calculate_transaction_fee(amount: str, rate: float) -> str:
+    """Calculates fee based on amount and multiplier."""
+    val = decimal.Decimal(amount)
+    fee = val * decimal.Decimal(str(rate))
+    return str(fee.quantize(decimal.Decimal('0.00000001')))
 
-    def process_transaction(self, tx_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Executes and validates transaction cycles."""
-        try:
-            if not tx_data.get('address'):
-                raise ValueError('Invalid destination address')
-            
-            result = self.wallet.execute(tx_data)
-            logger.info(f"Transaction processed: {result.get('txid')}")
-            return {"status": "success", "data": result}
+def validate_address_format(address: str, chain: str) -> bool:
+    """Validates address format based on network chain."""
+    rules = {
+        "ETH": lambda a: a.startswith("0x") and len(a) == 42,
+        "BTC": lambda a: len(a) in [26, 34, 42, 62]
+    }
+    validator = rules.get(chain)
+    return validator(address) if validator else False
 
-        except WalletError as e:
-            logger.error(f"Wallet operation failed: {e}")
-            return {"status": "error", "message": str(e)}
-
-    def get_status(self) -> Dict[str, bool]:
-        return {"active": self.wallet.is_connected()}
+def parse_wallet_data(data: Dict) -> Optional[Dict]:
+    """Standardizes incoming wallet dictionary payloads."""
+    if not data or 'balance' not in data:
+        return None
+    return {
+        "address": data.get("address"),
+        "balance": format_crypto_amount(data.get("balance", "0")),
+        "timestamp": data.get("ts")
+    }
