@@ -1,33 +1,27 @@
-import json
-import os
-from typing import Dict, Any, Optional
+import time
+import functools
+import logging
+from typing import Callable, Any
 
-def load_wallet_config(file_path: str) -> Dict[str, Any]:
-    """Loads and validates crypto wallet configuration from JSON."""
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"Configuration file {file_path} not found.")
-    
-    with open(file_path, 'r') as f:
-        config = json.load(f)
-    
-    return config
+logger = logging.getLogger(__name__)
 
-def sanitize_address(address: str) -> str:
-    """Removes whitespace and ensures lowercase for hex addresses."""
-    return address.strip().lower()
-
-def format_balance(amount: float, precision: int = 8) -> str:
-    """Formats crypto balance to specified decimal precision."""
-    return f"{amount:.{precision}f}"
-
-def validate_network_id(network_id: Any) -> bool:
-    """Checks if network identifier is valid hex or integer."""
-    if isinstance(network_id, int):
-        return network_id > 0
-    if isinstance(network_id, str):
-        return network_id.startswith('0x') and len(network_id) > 2
-    return False
-
-def get_env_var(key: str, default: Optional[str] = None) -> str:
-    """Retrieves environment variable with fallback safety."""
-    return os.getenv(key, default or "")
+def with_retry(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0):
+    """Decorator for retrying network operations with exponential backoff."""
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            attempts = 0
+            current_delay = delay
+            while attempts < max_attempts:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    attempts += 1
+                    if attempts == max_attempts:
+                        logger.error(f"Final attempt failed for {func.__name__}: {e}")
+                        raise e
+                    logger.warning(f"Attempt {attempts} failed for {func.__name__}. Retrying in {current_delay}s...")
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+        return wrapper
+    return decorator
