@@ -5,23 +5,26 @@ from typing import Callable, Any
 
 logger = logging.getLogger(__name__)
 
-def with_retry(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0):
-    """Decorator for retrying network operations with exponential backoff."""
+def retry_network_op(retries: int = 3, delay: float = 1.0):
+    """Decorator for retrying unstable network operations."""
     def decorator(func: Callable):
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
-            attempts = 0
-            current_delay = delay
-            while attempts < max_attempts:
+            last_exception = None
+            for attempt in range(retries):
                 try:
                     return func(*args, **kwargs)
-                except Exception as e:
-                    attempts += 1
-                    if attempts == max_attempts:
-                        logger.error(f"Final attempt failed for {func.__name__}: {e}")
-                        raise e
-                    logger.warning(f"Attempt {attempts} failed for {func.__name__}. Retrying in {current_delay}s...")
-                    time.sleep(current_delay)
-                    current_delay *= backoff
+                except (ConnectionError, TimeoutError) as e:
+                    last_exception = e
+                    logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying...")
+                    time.sleep(delay * (2 ** attempt))
+            logger.error(f"Operation failed after {retries} attempts.")
+            raise last_exception
         return wrapper
     return decorator
+
+@retry_network_op(retries=3)
+def fetch_blockchain_data(url: str):
+    """Example usage for blockchain API calls."""
+    # Placeholder for actual request logic
+    pass
