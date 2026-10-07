@@ -1,22 +1,30 @@
+import functools
 import re
 
-# Regex pattern for standard base58 or hex wallet addresses
-ADDRESS_PATTERN = re.compile(r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^0x[a-fA-F0-9]{40}$')
+# Compiled regex for consistent address validation performance
+ADDRESS_PATTERN = re.compile(r'^(0x)?[0-9a-fA-F]{40}$')
 
-def validate_wallet_address(address: str) -> bool:
-    """Verify address format against supported blockchain schemes."""
+@functools.lru_cache(maxsize=1024)
+def is_valid_address(address: str) -> bool:
+    """Validates hexadecimal crypto address format with memoization."""
     if not isinstance(address, str):
         return False
     return bool(ADDRESS_PATTERN.match(address))
 
-def validate_amount(amount: float) -> bool:
-    """Ensure transaction amount is positive and non-zero."""
-    try:
-        val = float(amount)
-        return val > 0
-    except (ValueError, TypeError):
-        return False
+def batch_validate_addresses(addresses: list[str]) -> list[bool]:
+    """High-performance validation for address list processing."""
+    return [is_valid_address(addr) for addr in addresses]
 
-def sanitize_input(data: str) -> str:
-    """Strip whitespace and normalize input strings."""
-    return data.strip() if data else ""
+class ValidationRegistry:
+    """Cache-optimized registry for address lookup checks."""
+    def __init__(self):
+        self._valid_cache = {}
+
+    def verify(self, address: str) -> bool:
+        if address not in self._valid_cache:
+            self._valid_cache[address] = is_valid_address(address)
+        return self._valid_cache[address]
+
+def clear_validation_cache():
+    """Flushes global memoization table to free memory."""
+    is_valid_address.cache_clear()
