@@ -1,30 +1,36 @@
-import functools
 import re
+from typing import Any
 
-# Compiled regex for consistent address validation performance
-ADDRESS_PATTERN = re.compile(r'^(0x)?[0-9a-fA-F]{40}$')
+class ValidationError(Exception):
+    """Custom exception for crypto input validation failures."""
+    pass
 
-@functools.lru_cache(maxsize=1024)
-def is_valid_address(address: str) -> bool:
-    """Validates hexadecimal crypto address format with memoization."""
+def validate_address(address: Any) -> str:
+    """Validates blockchain address format (hex string)."""
     if not isinstance(address, str):
-        return False
-    return bool(ADDRESS_PATTERN.match(address))
+        raise ValidationError("Address must be a string")
+    
+    # Basic hex check for crypto addresses
+    if not re.fullmatch(r'0x[a-fA-F0-9]{40}', address):
+        raise ValidationError("Invalid blockchain address format")
+    return address
 
-def batch_validate_addresses(addresses: list[str]) -> list[bool]:
-    """High-performance validation for address list processing."""
-    return [is_valid_address(addr) for addr in addresses]
+def validate_amount(amount: Any) -> float:
+    """Validates transaction amount as positive float."""
+    try:
+        val = float(amount)
+        if val <= 0:
+            raise ValidationError("Amount must be positive")
+        return val
+    except (ValueError, TypeError):
+        raise ValidationError("Amount must be a numeric value")
 
-class ValidationRegistry:
-    """Cache-optimized registry for address lookup checks."""
-    def __init__(self):
-        self._valid_cache = {}
-
-    def verify(self, address: str) -> bool:
-        if address not in self._valid_cache:
-            self._valid_cache[address] = is_valid_address(address)
-        return self._valid_cache[address]
-
-def clear_validation_cache():
-    """Flushes global memoization table to free memory."""
-    is_valid_address.cache_clear()
+def validate_payload(data: dict) -> bool:
+    """Ensures mandatory fields exist and are valid."""
+    required = {'address', 'amount'}
+    if not all(k in data for k in required):
+        raise ValidationError("Missing required transaction fields")
+    
+    validate_address(data['address'])
+    validate_amount(data['amount'])
+    return True
