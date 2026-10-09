@@ -5,30 +5,31 @@ from typing import Callable, Any
 
 logger = logging.getLogger(__name__)
 
-def retry_network_op(retries: int = 3, delay: float = 1.0, backoff: float = 2.0):
-    """Decorator to retry network-bound operations with exponential backoff."""
+def with_retry(retries: int = 3, delay: float = 1.0, backoff: float = 2.0):
+    """Decorator for retrying network operations with exponential backoff."""
     def decorator(func: Callable):
         @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             current_delay = delay
             last_exception = None
             
             for attempt in range(retries):
                 try:
                     return func(*args, **kwargs)
-                except (ConnectionError, TimeoutError) as e:
+                except Exception as e:
                     last_exception = e
-                    logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {current_delay}s...")
-                    time.sleep(current_delay)
-                    current_delay *= backoff
+                    logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying...")
+                    if attempt < retries - 1:
+                        time.sleep(current_delay)
+                        current_delay *= backoff
             
-            logger.error("Max retries exceeded for network operation.")
+            logger.error(f"Operation failed after {retries} attempts.")
             raise last_exception
         return wrapper
     return decorator
 
-@retry_network_op(retries=3)
-def fetch_blockchain_data(endpoint: str):
-    """Example network call for wallet utility."""
-    # Placeholder for actual network request logic
-    return {"status": "ok", "data": "block_hash_0x123"}
+@with_retry(retries=3)
+def fetch_balance(address: str) -> float:
+    """Mock network call to retrieve crypto wallet balance."""
+    # Implementation would involve requests/httpx here
+    return 0.0
