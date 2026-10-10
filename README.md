@@ -1,45 +1,50 @@
 # wallet-utility-13
 
-`wallet-utility-13` is a lightweight, Python-based toolkit designed for secure management and rapid auditing of cryptocurrency wallets. It provides developers and power users with a streamlined interface for monitoring balances and automating transactional workflows across EVM-compatible chains.
+A high-performance Python toolkit designed for seamless cryptocurrency wallet management and cryptographic operations. This utility provides a streamlined interface for key derivation, transaction signing, and balance monitoring across multiple EVM-compatible networks.
 
 ## Features
 
-*   **HD Wallet Generation:** Derives BIP-39 compliant mnemonic phrases and extended private keys for multi-chain account management.
-*   **Balance Aggregation:** Supports real-time balance fetching across Ethereum, Polygon, and BSC via integrated RPC providers.
-*   **Batch Transaction Signing:** Securely signs multiple offline transactions with configurable gas estimation and nonce management.
-*   **Audit Logger:** Exports wallet activity and transaction history to structured CSV formats for easier financial reconciliation.
+*   **HD Wallet Derivation:** Generate hierarchical deterministic wallets (BIP-32/BIP-44) from existing mnemonics with support for custom derivation paths.
+*   **Transaction Signing:** Perform secure offline transaction signing for standard transfers and contract interactions without exposing private keys to the network.
+*   **Balance Aggregation:** Fetch real-time token balances and native asset values across Ethereum, Polygon, and BSC using optimized RPC calls.
+*   **Encrypted Storage:** Built-in integration for storing sensitive keystores using AES-256 encryption to ensure local security.
 
 ## Installation
 
-Ensure you have Python 3.9+ installed. Clone the repository and install the dependencies:
+Ensure you have Python 3.9+ installed. It is recommended to use a virtual environment:
 
 ```bash
+# Clone the repository
 git clone https://github.com/Developer/wallet-utility-13.git
 cd wallet-utility-13
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-## Usage
+## Basic Usage
 
-You can initialize a new wallet instance and fetch current balances by running the following script:
+The following example demonstrates how to derive a wallet address from a BIP-39 mnemonic phrase:
 
 ```python
 from wallet_utility import WalletManager
 
-# Initialize with mnemonic
+# Initialize the manager
 manager = WalletManager(mnemonic="your twelve word seed phrase here")
 
-# Retrieve balance for the primary address
-balance = manager.get_balance(chain="ethereum")
-print(f"Current ETH Balance: {balance} ETH")
+# Derive account 0
+account = manager.get_account(index=0)
 
-# Send a transaction
-tx_hash = manager.transfer(to="0xRecipientAddress", amount=0.5, gas_strategy="fast")
-print(f"Transaction successful: {tx_hash}")
+print(f"Address: {account.address}")
+print(f"Private Key: {account.private_key}")
 ```
+
+## Contributing
+
+Contributions are welcome. Please open an issue to discuss proposed changes or submit a pull request for bug fixes. Ensure all new code includes corresponding unit tests within the `/tests` directory.
 
 ## License
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Distributed under the MIT License. See `LICENSE` for more information.
