@@ -1,35 +1,37 @@
 import logging
-from logging.handlers import RotatingFileHandler
+import sys
 import os
 
-def setup_logger(name: str, log_file: str = "wallet.log", level: int = logging.INFO) -> logging.Logger:
-    """Configures a rotating file logger for crypto wallet operations."""
+def setup_logger(name: str) -> logging.Logger:
+    """Configures a standardized logger for crypto operations."""
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    logger.setLevel(logging.INFO)
 
-    # Prevent duplicate handlers if logger is already configured
-    if not logger.handlers:
-        # Ensure log directory exists
-        log_dir = os.path.dirname(log_file)
-        if log_dir and not os.path.exists(log_dir):
-            os.makedirs(log_dir)
-
-        # Rotation: 5MB per file, keep 3 backups
-        handler = RotatingFileHandler(
-            log_file, 
-            maxBytes=5 * 1024 * 1024, 
-            backupCount=3
-        )
-        
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+    try:
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         handler.setFormatter(formatter)
-        logger.addHandler(handler)
-
-        # Stream handler for console output
-        console = logging.StreamHandler()
-        console.setFormatter(formatter)
-        logger.addHandler(console)
-
+        
+        if not logger.handlers:
+            logger.addHandler(handler)
+    except Exception as e:
+        # Fallback to stderr if standard stream initialization fails
+        print(f"Critical failure initializing logger: {e}", file=sys.stderr)
+        
     return logger
+
+def log_error(logger: logging.Logger, error: Exception, context: str = "operation") -> None:
+    """Centralized error reporting for edge cases."""
+    if not isinstance(error, Exception):
+        logger.error(f"Invalid error type provided: {type(error)}")
+        return
+
+    error_type = type(error).__name__
+    msg = f"Error during {context} [{error_type}]: {str(error)}"
+    
+    if error_type in ['ConnectionError', 'TimeoutError']:
+        logger.warning(msg)
+    elif error_type in ['ValueError', 'TypeError']:
+        logger.error(f"Logic error detected: {msg}")
+    else:
+        logger.critical(f"Unhandled system exception: {msg}", exc_info=True)
