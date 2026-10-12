@@ -1,36 +1,32 @@
 import re
-from typing import Any
 
-class ValidationError(Exception):
-    """Custom exception for crypto input validation failures."""
-    pass
+def validate_address(address: str) -> bool:
+    """Validate crypto address format using regex."""
+    # Supports basic hex format for ETH/EVM compatible chains
+    pattern = r'^0x[a-fA-F0-9]{40}$'
+    return bool(re.match(pattern, address))
 
-def validate_address(address: Any) -> str:
-    """Validates blockchain address format (hex string)."""
-    if not isinstance(address, str):
-        raise ValidationError("Address must be a string")
-    
-    # Basic hex check for crypto addresses
-    if not re.fullmatch(r'0x[a-fA-F0-9]{40}', address):
-        raise ValidationError("Invalid blockchain address format")
-    return address
-
-def validate_amount(amount: Any) -> float:
-    """Validates transaction amount as positive float."""
+def validate_amount(amount: str) -> bool:
+    """Ensure the provided string is a valid positive decimal."""
     try:
-        val = float(amount)
-        if val <= 0:
-            raise ValidationError("Amount must be positive")
-        return val
-    except (ValueError, TypeError):
-        raise ValidationError("Amount must be a numeric value")
+        value = float(amount)
+        return value > 0
+    except ValueError:
+        return False
 
-def validate_payload(data: dict) -> bool:
-    """Ensures mandatory fields exist and are valid."""
-    required = {'address', 'amount'}
-    if not all(k in data for k in required):
-        raise ValidationError("Missing required transaction fields")
+def validate_transaction_input(address: str, amount: str) -> dict:
+    """Consolidated validation for the main processing loop."""
+    errors = []
+    if not validate_address(address):
+        errors.append("invalid wallet address format")
+    if not validate_amount(amount):
+        errors.append("invalid transaction amount")
     
-    validate_address(data['address'])
-    validate_amount(data['amount'])
-    return True
+    return {
+        "is_valid": len(errors) == 0,
+        "errors": errors
+    }
+
+def sanitize_input(user_input: str) -> str:
+    """Strip whitespace and potential control characters."""
+    return user_input.strip().replace('\\', '')
