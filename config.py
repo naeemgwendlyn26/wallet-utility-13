@@ -1,36 +1,45 @@
-import json
 import os
-from typing import Any, Dict
+from typing import Dict, Any, Optional
 
-DEFAULT_CONFIG = {
-    "network": "mainnet",
-    "timeout": 30,
-    "retry_attempts": 3,
-    "rpc_url": "https://api.mainnet.node"
-}
+class WalletConfig:
+    """
+    Configuration management for wallet-utility-13.
+    Handles environment variables and network settings.
+    """
 
-class ConfigLoader:
-    """Utility for loading and merging wallet configurations."""
-    
-    def __init__(self, config_path: str = "config.json"):
-        self.config_path = config_path
-        self.settings = DEFAULT_CONFIG.copy()
+    def __init__(self) -> None:
+        self.rpc_url: str = os.getenv("RPC_URL", "https://mainnet.infura.io/v3/default")
+        self.timeout: int = int(os.getenv("REQUEST_TIMEOUT", "30"))
+        self.debug: bool = os.getenv("DEBUG", "false").lower() == "true"
 
-    def load(self) -> Dict[str, Any]:
-        """Loads config from file if present, else defaults."""
-        if os.path.exists(self.config_path):
-            try:
-                with open(self.config_path, "r") as f:
-                    file_config = json.load(f)
-                    self.settings.update(file_config)
-            except (json.JSONDecodeError, IOError):
-                pass
-        return self.settings
+    def get_network_settings(self) -> Dict[str, Any]:
+        """
+        Returns dictionary of network configuration parameters.
 
-    def get(self, key: str, default: Any = None) -> Any:
-        """Retrieves a single setting value."""
-        return self.settings.get(key, default)
+        Returns:
+            Dict[str, Any]: Current network settings.
+        """
+        return {
+            "url": self.rpc_url,
+            "timeout": self.timeout,
+            "debug_mode": self.debug
+        }
 
-# Instantiate global config for application use
-loader = ConfigLoader()
-settings = loader.load()
+    def update_timeout(self, new_timeout: int) -> None:
+        """
+        Updates the request timeout value dynamically.
+
+        Args:
+            new_timeout (int): New timeout duration in seconds.
+        """
+        if new_timeout > 0:
+            self.timeout = new_timeout
+
+def load_config() -> WalletConfig:
+    """
+    Factory function for WalletConfig instance.
+
+    Returns:
+        WalletConfig: Initialized configuration object.
+    """
+    return WalletConfig()
