@@ -1,26 +1,41 @@
-import hashlib
-from typing import Optional, Dict, Any
+import time
+import functools
+import logging
+from typing import Callable, Any, Type
 
-class WalletCore:
-    """Handles cryptographic address generation and validation logic."""
+logger = logging.getLogger(__name__)
 
-    def __init__(self, network: str = "mainnet") -> None:
-        self.network: str = network
+def retry_network_call(max_retries: int = 3, delay: float = 1.0, exceptions: tuple = (Exception, )) -> Callable:
+    """Decorator for retrying unstable network operations."""
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay}s...")
+                    time.sleep(delay)
+            
+            logger.error(f"Function {func.__name__} failed after {max_retries} attempts.")
+            raise last_exception
+        return wrapper
+    return decorator
 
-    def generate_address_checksum(self, public_key: str) -> str:
-        """Creates a SHA256 checksum for the provided public key."""
-        sha_hash = hashlib.sha256(public_key.encode('utf-8')).hexdigest()
-        return sha_hash[:8]
+@retry_network_call(max_retries=3, delay=2.0)
+def fetch_balance(wallet_address: str) -> float:
+    """Simulated network call to retrieve crypto balance."""
+    # Actual network implementation goes here
+    return 0.0
 
-    def validate_transaction(self, tx_data: Dict[str, Any]) -> bool:
-        """Checks if required fields exist in the transaction payload."""
-        required_fields = {"sender", "receiver", "amount"}
-        return required_fields.issubset(tx_data.keys())
+def main():
+    try:
+        balance = fetch_balance("0xABC123")
+        print(f"Wallet balance: {balance}")
+    except Exception as e:
+        print(f"Critical network failure: {e}")
 
-    def format_balance(self, amount: float) -> str:
-        """Converts float balance to a fixed precision string."""
-        return f"{amount:.8f}"
-
-    def get_network_info(self) -> Dict[str, str]:
-        """Retrieves current environment configuration settings."""
-        return {"network": self.network, "status": "active"}
+if __name__ == "__main__":
+    main()
