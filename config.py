@@ -1,45 +1,33 @@
 import os
-from typing import Dict, Any, Optional
+import logging
+
+# Configure logger for wallet-utility-13
+logger = logging.getLogger('wallet-utility')
+
+def get_env_variable(key: str, default: str = None) -> str:
+    """Retrieves environment variable with fallback and validation."""
+    try:
+        value = os.getenv(key)
+        if value is None:
+            if default is not None:
+                return default
+            raise EnvironmentError(f"Required config {key} is missing")
+        return value
+    except EnvironmentError as e:
+        logger.critical(f"Configuration failure: {e}")
+        raise
 
 class WalletConfig:
-    """
-    Configuration management for wallet-utility-13.
-    Handles environment variables and network settings.
-    """
+    def __init__(self):
+        try:
+            self.rpc_url = get_env_variable("RPC_URL", "https://mainnet.infura.io/v3/default")
+            self.timeout = int(get_env_variable("REQUEST_TIMEOUT", "30"))
+            self.max_retries = int(get_env_variable("MAX_RETRIES", "3"))
+        except ValueError as e:
+            logger.error(f"Invalid configuration format: {e}")
+            self.rpc_url = ""
+            self.timeout = 30
+            self.max_retries = 3
 
-    def __init__(self) -> None:
-        self.rpc_url: str = os.getenv("RPC_URL", "https://mainnet.infura.io/v3/default")
-        self.timeout: int = int(os.getenv("REQUEST_TIMEOUT", "30"))
-        self.debug: bool = os.getenv("DEBUG", "false").lower() == "true"
-
-    def get_network_settings(self) -> Dict[str, Any]:
-        """
-        Returns dictionary of network configuration parameters.
-
-        Returns:
-            Dict[str, Any]: Current network settings.
-        """
-        return {
-            "url": self.rpc_url,
-            "timeout": self.timeout,
-            "debug_mode": self.debug
-        }
-
-    def update_timeout(self, new_timeout: int) -> None:
-        """
-        Updates the request timeout value dynamically.
-
-        Args:
-            new_timeout (int): New timeout duration in seconds.
-        """
-        if new_timeout > 0:
-            self.timeout = new_timeout
-
-def load_config() -> WalletConfig:
-    """
-    Factory function for WalletConfig instance.
-
-    Returns:
-        WalletConfig: Initialized configuration object.
-    """
-    return WalletConfig()
+# Instantiate shared config
+settings = WalletConfig()
