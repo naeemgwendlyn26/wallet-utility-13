@@ -1,48 +1,37 @@
-import os
 import logging
-from logging.handlers import RotatingFileHandler
+import sys
+from typing import Optional
 
-LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
-DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-DEFAULT_LOG_DIR = "logs"
-
-
-def setup_wallet_logger(
-    name: str = "wallet_utility",
-    log_filename: str = "wallet.log",
-    level: int = logging.INFO,
-    max_bytes: int = 5 * 1024 * 1024,
-    backup_count: int = 5
-) -> logging.Logger:
-    """Configures and returns a logger instance with rotating file output."""
+def setup_wallet_logger(name: str = 'wallet_utility_13') -> logging.Logger:
+    """Configures a structured logger with exception handling."""
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    logger.setLevel(logging.INFO)
 
-    if logger.handlers:
-        return logger
-
-    os.makedirs(DEFAULT_LOG_DIR, exist_ok=True)
-    log_filepath = os.path.join(DEFAULT_LOG_DIR, log_filename)
-
-    formatter = logging.Formatter(LOG_FORMAT, datefmt=DATE_FORMAT)
-
-    file_handler = RotatingFileHandler(
-        log_filepath,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-        encoding="utf-8"
-    )
-    file_handler.setFormatter(formatter)
-    file_handler.setLevel(level)
-
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(level)
-
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
+    if not logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
     return logger
 
+def log_critical_error(logger: logging.Logger, error: Exception, context: Optional[str] = None) -> None:
+    """Standardized logging for crypto transaction failures."""
+    error_type = type(error).__name__
+    details = f" | Context: {context}" if context else ""
+    
+    if isinstance(error, (ValueError, ConnectionError, TimeoutError)):
+        logger.error(f"Recoverable error [{error_type}]: {str(error)}{details}")
+    else:
+        logger.critical(f"Unrecoverable system failure [{error_type}]: {str(error)}{details}", exc_info=True)
 
-logger = setup_wallet_logger()
+def sanitize_log_message(message: str) -> str:
+    """Strip sensitive data from logs before persistence."""
+    if not message:
+        return ""
+    # Example: Basic scrubbing of potential private keys or sensitive patterns
+    sensitive_patterns = ["private_key", "mnemonic", "secret"]
+    for pattern in sensitive_patterns:
+        if pattern in message.lower():
+            return f"[REDACTED SENSITIVE DATA IN {pattern.upper()}]"
+    return message
