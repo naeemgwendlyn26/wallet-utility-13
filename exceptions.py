@@ -1,29 +1,42 @@
-class WalletError(Exception):
-    """Base exception for wallet-utility-13 errors."""
-    pass
+"""Custom exceptions for wallet-utility-13 crypto operations."""
 
-class InsufficientFundsError(WalletError):
-    """Raised when transaction amount exceeds available balance."""
-    def __init__(self, required, available):
-        self.message = f"Required {required} but only {available} available."
-        super().__init__(self.message)
+
+class WalletError(Exception):
+    """Base exception class for all crypto wallet utility errors."""
+
+    def __init__(self, message: str, payload: dict = None):
+        super().__init__(message)
+        self.message = message
+        self.payload = payload or {}
+
 
 class InvalidAddressError(WalletError):
-    """Raised when the provided address fails validation."""
-    def __init__(self, address):
-        self.message = f"Invalid crypto address format: {address}"
-        super().__init__(self.message)
+    """Raised when a crypto address fails checksum or format validation."""
 
-class NetworkTimeoutError(WalletError):
-    """Raised when RPC or node requests time out."""
-    def __init__(self, node_url):
-        self.message = f"Connection to node {node_url} timed out."
-        super().__init__(self.message)
-
-class SignatureError(WalletError):
-    """Raised during cryptographic signing failures."""
     pass
 
-class DecryptionError(WalletError):
-    """Raised when private keys cannot be decrypted."""
-    pass
+
+class InsufficientBalanceError(WalletError):
+    """Raised when an account lacks required funds for transfer or gas."""
+
+    def __init__(self, required: float, available: float, currency: str = "ETH"):
+        message = f"Insufficient balance: required {required} {currency}, available {available} {currency}"
+        payload = {"required": required, "available": available, "currency": currency}
+        super().__init__(message, payload)
+
+
+class TransactionExecutionError(WalletError):
+    """Raised when transaction broadcast or execution fails on-chain."""
+
+    def __init__(self, tx_hash: str, reason: str):
+        message = f"Transaction {tx_hash} failed: {reason}"
+        super().__init__(message, payload={"tx_hash": tx_hash, "reason": reason})
+
+
+class RPCNodeError(WalletError):
+    """Raised when the connected RPC node returns an error or times out."""
+
+    def __init__(self, endpoint: str, status_code: int, details: str):
+        message = f"RPC node at {endpoint} returned error {status_code}: {details}"
+        payload = {"endpoint": endpoint, "status_code": status_code, "details": details}
+        super().__init__(message, payload)
