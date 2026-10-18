@@ -2,44 +2,47 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 
-def setup_logger(
+LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+DEFAULT_LOG_DIR = "logs"
+
+
+def setup_wallet_logger(
     name: str = "wallet_utility",
-    log_file: str = "logs/wallet.log",
-    level: int = logging.INFO
+    log_filename: str = "wallet.log",
+    level: int = logging.INFO,
+    max_bytes: int = 5 * 1024 * 1024,
+    backup_count: int = 5
 ) -> logging.Logger:
-    """Configures and returns a logger instance with rotating file handler."""
+    """Configures and returns a logger instance with rotating file output."""
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
     if logger.handlers:
         return logger
 
-    formatter = logging.Formatter(
-        "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
+    os.makedirs(DEFAULT_LOG_DIR, exist_ok=True)
+    log_filepath = os.path.join(DEFAULT_LOG_DIR, log_filename)
 
-    # Console output handler
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+    formatter = logging.Formatter(LOG_FORMAT, datefmt=DATE_FORMAT)
 
-    # Create log directory if it doesn't exist
-    log_dir = os.path.dirname(log_file)
-    if log_dir:
-        os.makedirs(log_dir, exist_ok=True)
-
-    # File rotation: max 5MB per log file, keeping up to 3 backups
     file_handler = RotatingFileHandler(
-        log_file,
-        maxBytes=5 * 1024 * 1024,
-        backupCount=3,
+        log_filepath,
+        maxBytes=max_bytes,
+        backupCount=backup_count,
         encoding="utf-8"
     )
     file_handler.setFormatter(formatter)
+    file_handler.setLevel(level)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(level)
+
     logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
 
     return logger
 
-# Pre-configured logger instance for crypto wallet operations
-wallet_logger = setup_logger()
+
+logger = setup_wallet_logger()
