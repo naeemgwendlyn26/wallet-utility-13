@@ -1,35 +1,38 @@
-import decimal
-from typing import Dict, Optional
+import functools
+import time
+from typing import Any, Callable, Dict
 
-def format_crypto_amount(amount: str, precision: int = 8) -> str:
-    """Converts raw string amount to standardized decimal format."""
-    try:
-        value = decimal.Decimal(amount)
-        return format(value.normalize(), f'f').rstrip('0').rstrip('.')
-    except (decimal.InvalidOperation, ValueError):
-        return "0"
+# Cache dictionary for wallet balance lookups to improve latency
+_balance_cache: Dict[str, tuple] = {}
+CACHE_TTL = 30
 
-def calculate_transaction_fee(amount: str, rate: float) -> str:
-    """Calculates fee based on amount and multiplier."""
-    val = decimal.Decimal(amount)
-    fee = val * decimal.Decimal(str(rate))
-    return str(fee.quantize(decimal.Decimal('0.00000001')))
+def cached_balance_lookup(func: Callable) -> Callable:
+    """Decorator for rate-limited balance lookups."""
+    @functools.wraps(func)
+    def wrapper(address: str, *args, **kwargs) -> Any:
+        now = time.time()
+        if address in _balance_cache:
+            val, timestamp = _balance_cache[address]
+            if now - timestamp < CACHE_TTL:
+                return val
+        
+        result = func(address, *args, **kwargs)
+        _balance_cache[address] = (result, now)
+        return result
+    return wrapper
 
-def validate_address_format(address: str, chain: str) -> bool:
-    """Validates address format based on network chain."""
-    rules = {
-        "ETH": lambda a: a.startswith("0x") and len(a) == 42,
-        "BTC": lambda a: len(a) in [26, 34, 42, 62]
-    }
-    validator = rules.get(chain)
-    return validator(address) if validator else False
+class WalletHandler:
+    """Performance-focused wallet data processor."""
 
-def parse_wallet_data(data: Dict) -> Optional[Dict]:
-    """Standardizes incoming wallet dictionary payloads."""
-    if not data or 'balance' not in data:
-        return None
-    return {
-        "address": data.get("address"),
-        "balance": format_crypto_amount(data.get("balance", "0")),
-        "timestamp": data.get("ts")
-    }
+    def __init__(self, provider: Any):
+        self.provider = provider
+
+    @cached_balance_lookup
+    def get_wallet_balance(self, address: str) -> float:
+        """Fetches and caches balance from blockchain node."""
+        balance = self.provider.fetch_balance(address)
+        return float(balance)
+
+    def batch_process_balances(self, addresses: list) -> Dict[str, float]:
+        """Efficient mapping of multiple wallet addresses."""
+        return {addr: self.get_wallet_balance(addr) for addr in addresses}
