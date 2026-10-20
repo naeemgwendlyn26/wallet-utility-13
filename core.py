@@ -1,25 +1,31 @@
 import hashlib
 import hmac
-from decimal import Decimal
+from typing import Optional
 
-def format_crypto_amount(amount: str, precision: int = 8) -> str:
-    """Formats a string amount to fixed precision for display."""
-    return f"{Decimal(amount):.{precision}f}"
+def generate_address_checksum(address: str) -> str:
+    """Generates EIP-55 style checksum for address."""
+    address = address.lower().replace('0x', '')
+    hash_addr = hashlib.sha3_256(address.encode()).hexdigest()
+    checksum = '0x'
+    for i in range(len(address)):
+        if int(hash_addr[i], 16) >= 8:
+            checksum += address[i].upper()
+        else:
+            checksum += address[i]
+    return checksum
 
-def generate_hmac_signature(secret: str, message: str) -> str:
-    """Generates a hex signature for API request authentication."""
+def validate_fee_bounds(amount: float, min_val: float, max_val: float) -> bool:
+    """Ensures fee is within acceptable network range."""
+    return min_val <= amount <= max_val
+
+def format_wei_to_eth(wei: int) -> float:
+    """Converts raw wei integers to float ether."""
+    return float(wei) / 10**18
+
+def sign_payload(payload: str, secret: str) -> str:
+    """Creates HMAC signature for API requests."""
     return hmac.new(
-        secret.encode('utf-8'),
-        message.encode('utf-8'),
+        secret.encode(),
+        payload.encode(),
         hashlib.sha256
     ).hexdigest()
-
-def validate_address_format(address: str, prefix: str = '0x') -> bool:
-    """Validates basic hex address string format."""
-    if not address.startswith(prefix):
-        return False
-    return len(address) == 42 and all(c in '0123456789abcdefABCDEF' for c in address[2:])
-
-def convert_satoshi_to_btc(sats: int) -> float:
-    """Converts satoshis to BTC float representation."""
-    return float(Decimal(sats) / Decimal(10**8))
