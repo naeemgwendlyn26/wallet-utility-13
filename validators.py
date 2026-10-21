@@ -1,30 +1,36 @@
 import re
-from functools import lru_cache
 
-# Cached regex patterns for performance optimization
-# Prevents recompilation of patterns during repeated validation calls
-@lru_cache(maxsize=16)
-def _get_address_pattern(network: str) -> re.Pattern:
-    patterns = {
-        "bitcoin": r"^(1|3|bc1)[a-zA-Z0-9]{25,59}$",
-        "ethereum": r"^0x[a-fA-F0-9]{40}$"
-    }
-    return re.compile(patterns.get(network, r".*"))
+class AddressValidationError(Exception):
+    """Custom exception for crypto address validation issues."""
+    pass
 
-def is_valid_address(address: str, network: str) -> bool:
+def validate_evm_address(address: str) -> bool:
     """
-    Validates crypto wallet addresses using cached compiled regex.
-    Reduces overhead in high-throughput transaction processing.
+    Validates EVM-compatible wallet addresses using regex.
+    Raises AddressValidationError if input format is invalid.
     """
-    if not address or not isinstance(address, str):
-        return False
+    if not isinstance(address, str):
+        raise AddressValidationError("Address must be a string")
     
-    pattern = _get_address_pattern(network)
-    return bool(pattern.match(address))
+    # Check for hex prefix and standard length
+    if not re.match(r'^0x[a-fA-F0-9]{40}$', address):
+        raise AddressValidationError(f"Invalid format for address: {address}")
+        
+    return True
 
-def validate_batch(addresses: list[str], network: str) -> list[bool]:
+def sanitize_input(data: str) -> str:
     """
-    Processes address lists in bulk to minimize function call depth.
+    Basic sanitization to prevent malformed string processing.
     """
-    pattern = _get_address_pattern(network)
-    return [bool(pattern.match(addr)) for addr in addresses if isinstance(addr, str)]
+    if not data:
+        return ""
+    return str(data).strip().lower()
+
+def safe_check(address: str) -> bool:
+    """
+    Wrapper for validation with error containment.
+    """
+    try:
+        return validate_evm_address(sanitize_input(address))
+    except AddressValidationError:
+        return False
