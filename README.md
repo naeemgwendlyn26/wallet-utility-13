@@ -1,13 +1,13 @@
 # wallet-utility-13
 
-A high-performance Python toolkit designed for seamless cryptocurrency wallet management and cryptographic operations. This utility provides a streamlined interface for key derivation, transaction signing, and balance monitoring across multiple EVM-compatible networks.
+A high-performance Python toolkit designed for seamless cryptocurrency wallet management and cryptographic operations. This utility provides a streamlined interface for interacting with blockchain assets while prioritizing security and speed.
 
 ## Features
 
-*   **HD Wallet Derivation:** Generate hierarchical deterministic wallets (BIP-32/BIP-44) from existing mnemonics with support for custom derivation paths.
-*   **Transaction Signing:** Perform secure offline transaction signing for standard transfers and contract interactions without exposing private keys to the network.
-*   **Balance Aggregation:** Fetch real-time token balances and native asset values across Ethereum, Polygon, and BSC using optimized RPC calls.
-*   **Encrypted Storage:** Built-in integration for storing sensitive keystores using AES-256 encryption to ensure local security.
+*   **HD Wallet Generation:** Securely derive hierarchical deterministic wallets (BIP39/BIP44) with customizable derivation paths.
+*   **Balance Aggregation:** Multi-chain support for querying wallet balances across EVM-compatible networks via integrated RPC nodes.
+*   **Encrypted Export:** Batch export private keys or mnemonics into AES-256 encrypted local storage files.
+*   **Transaction Signing:** Minimalist library for offline transaction signing to ensure private keys never expose to the network layer.
 
 ## Installation
 
@@ -24,27 +24,29 @@ pip install -r requirements.txt
 
 ## Basic Usage
 
-The following example demonstrates how to derive a wallet address from a BIP-39 mnemonic phrase:
+The following example demonstrates how to generate a new wallet and retrieve its corresponding address:
 
 ```python
 from wallet_utility import WalletManager
 
 # Initialize the manager
-manager = WalletManager(mnemonic="your twelve word seed phrase here")
+manager = WalletManager()
 
-# Derive account 0
-account = manager.get_account(index=0)
+# Generate a new BIP39 mnemonic
+mnemonic = manager.generate_mnemonic()
 
-print(f"Address: {account.address}")
-print(f"Private Key: {account.private_key}")
+# Derive the primary wallet address
+wallet = manager.derive_wallet(mnemonic, path="m/44'/60'/0'/0/0")
+
+print(f"Address: {wallet.address}")
+print(f"Private Key: {wallet.private_key}")
 ```
 
-## Contributing
-
-Contributions are welcome. Please open an issue to discuss proposed changes or submit a pull request for bug fixes. Ensure all new code includes corresponding unit tests within the `/tests` directory.
+## Security Warning
+This utility handles sensitive cryptographic material. Always run in a secure, air-gapped environment when performing mainnet transactions. Never share your mnemonic or private keys with anyone.
 
 ## License
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Distributed under the MIT License. See `LICENSE` for more information.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
