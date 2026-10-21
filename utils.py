@@ -1,27 +1,30 @@
-import time
-import functools
-import logging
+import hashlib
+import hmac
+from typing import Dict, Any
+import json
 
-logger = logging.getLogger(__name__)
+def generate_signature(api_secret: str, payload: Dict[str, Any]) -> str:
+    """Creates an HMAC-SHA256 signature for API authentication."""
+    query_string = json.dumps(payload, sort_keys=True)
+    return hmac.new(
+        api_secret.encode('utf-8'),
+        query_string.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
 
-def retry_network_op(max_attempts=3, backoff=2):
-    """Decorator for retrying network-bound functions with exponential backoff."""
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            attempts = 0
-            current_delay = 1
-            while attempts < max_attempts:
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    attempts += 1
-                    if attempts >= max_attempts:
-                        logger.error(f"Final attempt {attempts} failed for {func.__name__}: {e}")
-                        raise
-                    logger.warning(f"Attempt {attempts} failed, retrying in {current_delay}s...")
-                    time.sleep(current_delay)
-                    current_delay *= backoff
-            return None
-        return wrapper
-    return decorator
+def format_crypto_amount(amount: float, precision: int = 8) -> str:
+    """Standardizes crypto float representation to string format."""
+    if amount < 0:
+        raise ValueError("amount cannot be negative")
+    
+    format_str = f"{{:.{precision}f}}"
+    return format_str.format(amount).rstrip('0').rstrip('.')
+
+def validate_transaction_data(data: Dict[str, Any]) -> bool:
+    """Ensures required fields exist in transaction payload."""
+    required = {'asset', 'amount', 'address', 'nonce'}
+    return all(key in data for key in required)
+
+def sanitize_address(address: str) -> str:
+    """Normalizes hex address strings to lowercase."""
+    return address.strip().lower()
