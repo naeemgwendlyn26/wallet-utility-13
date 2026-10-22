@@ -1,33 +1,41 @@
-import os
-from typing import Dict, Optional
+import hashlib
+import functools
+from typing import List, Dict, Tuple
 
-class WalletManager:
-    """Handles crypto wallet operations for wallet-utility-13."""
+class CoreWalletProcessor:
+    """Core utility for optimized crypto key derivation and address checking."""
 
-    def __init__(self, network: str = "mainnet"):
-        self.network = network
-        self._cache: Dict[str, str] = {}
+    def __init__(self, network_prefix: bytes = b'\x00'):
+        self.network_prefix = network_prefix
 
-    def get_wallet_address(self, public_key: str) -> Optional[str]:
-        """Derives address from public key with caching."""
-        if public_key in self._cache:
-            return self._cache[public_key]
+    @staticmethod
+    @functools.lru_cache(maxsize=4096)
+    def derive_address_fast(pubkey_bytes: bytes) -> str:
+        """Derive standard wallet address from public key using cached hashing logic."""
+        sha_hash = hashlib.sha256(pubkey_bytes).digest()
+        ripemd_hash = hashlib.new('ripemd160', sha_hash).digest()
+        checksum = hashlib.sha256(hashlib.sha256(ripemd_hash).digest()).digest()[:4]
+        full_payload = ripemd_hash + checksum
+        return full_payload.hex()
 
-        if len(public_key) < 32:
-            return None
+    def batch_process_signatures(
+        self, transactions: List[Dict[str, bytes]]
+    ) -> List[Tuple[str, bool]]:
+        """Batch process transaction public keys with caching to maximize throughput."""
+        results = []
+        for tx in transactions:
+            pubkey = tx.get('pubkey')
+            signature = tx.get('signature')
+            if not pubkey or not signature:
+                results.append(("", False))
+                continue
 
-        address = f"0x{public_key[:40].lower()}"
-        self._cache[public_key] = address
-        return address
+            address = self.derive_address_fast(pubkey)
+            is_valid_len = len(signature) in (64, 65)
+            results.append((address, is_valid_len))
 
-    def validate_config(self) -> bool:
-        """Check environment variables for wallet connectivity."""
-        return "RPC_URL" in os.environ
+        return results
 
-    def reset_session(self) -> None:
-        """Clear local cache for security and memory."""
-        self._cache.clear()
-
-if __name__ == "__main__":
-    manager = WalletManager()
-    print(f"Initialized wallet manager on {manager.network}")
+    def clear_derivation_cache(self) -> None:
+        """Reset memory cache for key derivations."""
+        self.derive_address_fast.cache_clear()
