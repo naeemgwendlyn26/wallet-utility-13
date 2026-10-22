@@ -6,28 +6,29 @@ DEFAULT_CONFIG = {
     "network": "mainnet",
     "timeout": 30,
     "retry_attempts": 3,
-    "api_key": None
+    "log_level": "INFO"
 }
 
-def load_config(filepath: str = "config.json") -> Dict[str, Any]:
+def load_config(config_path: str = "config.json") -> Dict[str, Any]:
     """
-    Loads configuration from json file with fallback defaults.
+    Loads configuration from a JSON file, merging with default values.
+    Returns the resulting dictionary after merging.
     """
     config = DEFAULT_CONFIG.copy()
     
-    if os.path.exists(filepath):
+    if os.path.exists(config_path):
         try:
-            with open(filepath, "r") as f:
+            with open(config_path, "r") as f:
                 user_config = json.load(f)
                 config.update(user_config)
         except (json.JSONDecodeError, IOError) as e:
-            print(f"Warning: failed to load config file: {e}. Using defaults.")
-            
+            print(f"Warning: Could not load config {config_path}: {e}. Using defaults.")
+    
     return config
 
-def validate_config(config: Dict[str, Any]) -> bool:
+def get_config_value(key: str, default: Any = None) -> Any:
     """
-    Basic validation for essential configuration keys.
+    Helper to fetch specific configuration values.
     """
-    required = ["network"]
-    return all(key in config for key in required)
+    config = load_config()
+    return config.get(key, default)
