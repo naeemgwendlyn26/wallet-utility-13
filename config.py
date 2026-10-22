@@ -1,31 +1,33 @@
-import os
 import json
+import os
 from typing import Any, Dict
 
 DEFAULT_CONFIG = {
     "network": "mainnet",
-    "rpc_url": "https://rpc.ankr.com/eth",
     "timeout": 30,
-    "retry_attempts": 3
+    "retry_attempts": 3,
+    "api_key": None
 }
 
-def load_config(config_path: str = "config.json") -> Dict[str, Any]:
+def load_config(filepath: str = "config.json") -> Dict[str, Any]:
     """
-    Loads configuration from a JSON file with hardcoded defaults.
+    Loads configuration from json file with fallback defaults.
     """
     config = DEFAULT_CONFIG.copy()
     
-    if os.path.exists(config_path):
+    if os.path.exists(filepath):
         try:
-            with open(config_path, "r") as f:
+            with open(filepath, "r") as f:
                 user_config = json.load(f)
                 config.update(user_config)
         except (json.JSONDecodeError, IOError) as e:
-            print(f"Warning: Failed to load config file: {e}. Using defaults.")
-    
+            print(f"Warning: failed to load config file: {e}. Using defaults.")
+            
     return config
 
-if __name__ == "__main__":
-    # Example usage for wallet-utility-13 initialization
-    settings = load_config()
-    print(f"Loaded settings for network: {settings['network']}")
+def validate_config(config: Dict[str, Any]) -> bool:
+    """
+    Basic validation for essential configuration keys.
+    """
+    required = ["network"]
+    return all(key in config for key in required)
