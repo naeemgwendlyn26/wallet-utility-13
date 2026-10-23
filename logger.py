@@ -1,30 +1,31 @@
 import logging
-from logging.handlers import RotatingFileHandler
-import os
+import sys
+from typing import Optional
 
-def setup_logger(name: str, log_file: str = 'wallet.log') -> logging.Logger:
-    """Initializes a rotating file logger for crypto wallet operations."""
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
+class WalletLogger:
+    """Centralized logging for crypto operations with exception handling."""
+    def __init__(self, name: str = "wallet-utility-13"):
+        self.logger = logging.getLogger(name)
+        self._setup_logger()
 
-    # Prevent duplicate handlers if logger is re-initialized
-    if not logger.handlers:
-        # 5MB per file, keep 3 backups
-        handler = RotatingFileHandler(
-            log_file, 
-            maxBytes=5 * 1024 * 1024, 
-            backupCount=3
-        )
-        
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
+    def _setup_logger(self) -> None:
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        
-        # Optional console output for development
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
+        self.logger.addHandler(handler)
+        self.logger.setLevel(logging.INFO)
 
-    return logger
+    def log_error(self, message: str, exc: Optional[Exception] = None) -> None:
+        """Sanitized error logging for crypto-sensitive flows."""
+        if exc:
+            error_type = type(exc).__name__
+            self.logger.error(f"{message} | Error: {error_type} | Details: {str(exc)}")
+        else:
+            self.logger.error(message)
+
+    def log_tx_failure(self, tx_hash: str, reason: str) -> None:
+        """Standardized logging for blockchain transaction edge cases."""
+        if not tx_hash:
+            self.logger.warning("Attempted to log transaction failure with empty hash")
+            return
+        self.logger.error(f"Transaction failed: {tx_hash} | Reason: {reason}")
