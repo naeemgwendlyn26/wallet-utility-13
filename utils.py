@@ -1,30 +1,25 @@
-import hashlib
-import hmac
-from typing import Dict, Any
-import json
+import decimal
+from typing import Union
 
-def generate_signature(api_secret: str, payload: Dict[str, Any]) -> str:
-    """Creates an HMAC-SHA256 signature for API authentication."""
-    query_string = json.dumps(payload, sort_keys=True)
-    return hmac.new(
-        api_secret.encode('utf-8'),
-        query_string.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
+def wei_to_ether(wei_value: Union[int, str]) -> float:
+    """Convert wei (smallest unit) to ether."""
+    return float(decimal.Decimal(str(wei_value)) / decimal.Decimal(10**18))
 
-def format_crypto_amount(amount: float, precision: int = 8) -> str:
-    """Standardizes crypto float representation to string format."""
-    if amount < 0:
-        raise ValueError("amount cannot be negative")
-    
-    format_str = f"{{:.{precision}f}}"
-    return format_str.format(amount).rstrip('0').rstrip('.')
+def ether_to_wei(ether_value: Union[float, str]) -> int:
+    """Convert ether to wei for smart contract calls."""
+    return int(decimal.Decimal(str(ether_value)) * decimal.Decimal(10**18))
 
-def validate_transaction_data(data: Dict[str, Any]) -> bool:
-    """Ensures required fields exist in transaction payload."""
-    required = {'asset', 'amount', 'address', 'nonce'}
-    return all(key in data for key in required)
+def format_address(address: str) -> str:
+    """Standardize address formatting for consistency."""
+    if not address.startswith('0x'):
+        address = f'0x{address}'
+    return address.lower()
 
-def sanitize_address(address: str) -> str:
-    """Normalizes hex address strings to lowercase."""
-    return address.strip().lower()
+def validate_gas_price(gas_price_gwei: float) -> bool:
+    """Check if gas price is within reasonable range."""
+    return 0.1 <= gas_price_gwei <= 1000.0
+
+def calculate_tx_fee(gas_limit: int, gas_price_gwei: float) -> float:
+    """Calculate total transaction cost in ether."""
+    fee_wei = gas_limit * (gas_price_gwei * 10**9)
+    return wei_to_ether(int(fee_wei))
