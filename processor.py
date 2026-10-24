@@ -1,33 +1,34 @@
-import logging
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Dict, Optional
 
-logger = logging.getLogger(__name__)
+class CryptoProcessor:
+    """Handles precision formatting and normalization of crypto assets."""
 
-class TransactionProcessor:
-    def __init__(self, wallet_api):
-        self.api = wallet_api
+    DEFAULT_PRECISION = 8
 
-    def execute_transfer(self, sender, recipient, amount):
-        """Executes a crypto transfer with robust edge case handling."""
-        try:
-            if amount <= 0:
-                raise ValueError("Transfer amount must be positive")
-            
-            if sender == recipient:
-                raise ValueError("Sender and recipient addresses cannot be identical")
-
-            response = self.api.post_transaction(sender, recipient, amount)
-            
-            if not response or 'txid' not in response:
-                logger.error("Invalid API response structure")
-                return None
-                
-            return response['txid']
-
-        except ConnectionError as e:
-            logger.error(f"Network connectivity failure: {e}")
-        except ValueError as e:
-            logger.warning(f"Validation failure: {e}")
-        except Exception as e:
-            logger.critical(f"Unexpected critical processing error: {e}")
+    @staticmethod
+    def format_amount(amount: float, precision: int = DEFAULT_PRECISION) -> str:
+        """Convert float amounts to consistent string representation."""
+        if not isinstance(amount, (int, float)):
+            raise ValueError("Amount must be a numeric type")
         
-        return None
+        factor = Decimal(10) ** -precision
+        d_amount = Decimal(str(amount)).quantize(factor, rounding=ROUND_HALF_UP)
+        return format(d_amount, f'f')
+
+    @classmethod
+    def normalize_tx_data(cls, data: Dict[str, any]) -> Dict[str, any]:
+        """Sanitize transaction dictionary for backend persistence."""
+        return {
+            "tx_hash": str(data.get("hash", "")).lower(),
+            "asset": str(data.get("symbol", "")).upper(),
+            "value": cls.format_amount(float(data.get("amount", 0))),
+            "timestamp": int(data.get("ts", 0))
+        }
+
+    @staticmethod
+    def validate_asset_code(code: Optional[str]) -> bool:
+        """Simple check for crypto asset ticker validity."""
+        if not code or not isinstance(code, str):
+            return False
+        return 2 <= len(code) <= 10 and code.isalnum()
