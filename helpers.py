@@ -1,33 +1,41 @@
-import functools
-import time
-from typing import Callable, Any, Dict
+import decimal
+from typing import Union
 
-# Cache for address validation results to prevent redundant processing
-_validation_cache: Dict[str, bool] = {}
 
-@functools.lru_cache(maxsize=128)
-def get_cached_timestamp() -> float:
-    """Provides current time with 1-second precision to batch network requests."""
-    return time.time() // 1
+def satoshi_to_btc(sats: int) -> decimal.Decimal:
+    """Convert satoshis to BTC decimal value."""
+    if sats < 0:
+        raise ValueError("Satoshi amount cannot be negative")
+    return (decimal.Decimal(sats) / decimal.Decimal(10**8)).normalize()
 
-def memoize_validation(func: Callable[[str], bool]) -> Callable[[str], bool]:
-    """Decorator to cache result of expensive blockchain address format validations."""
-    @functools.wraps(func)
-    def wrapper(address: str) -> bool:
-        if address not in _validation_cache:
-            _validation_cache[address] = func(address)
-        return _validation_cache[address]
-    return wrapper
 
-@memoize_validation
-def is_valid_checksum_address(address: str) -> bool:
-    """Simulates intensive cryptographic checksum verification logic."""
-    if not address.startswith('0x') or len(address) != 42:
-        return False
-    return all(c in '0123456789abcdefABCDEF' for c in address[2:])
+def btc_to_satoshi(btc: Union[float, str, decimal.Decimal]) -> int:
+    """Convert BTC value to satoshis."""
+    btc_dec = decimal.Decimal(str(btc))
+    if btc_dec < 0:
+        raise ValueError("BTC amount cannot be negative")
+    return int(btc_dec * decimal.Decimal(10**8))
 
-def clear_cache() -> None:
-    """Clears memory for garbage collection during session rotation."""
-    global _validation_cache
-    _validation_cache.clear()
-    get_cached_timestamp.cache_clear()
+
+def wei_to_eth(wei: int) -> decimal.Decimal:
+    """Convert Wei to ETH decimal value."""
+    if wei < 0:
+        raise ValueError("Wei amount cannot be negative")
+    return (decimal.Decimal(wei) / decimal.Decimal(10**18)).normalize()
+
+
+def truncate_address(address: str, prefix_len: int = 6, suffix_len: int = 4) -> str:
+    """Truncate a crypto wallet address for UI display."""
+    if not address:
+        return ""
+    if len(address) <= (prefix_len + suffix_len):
+        return address
+    return f"{address[:prefix_len]}...{address[-suffix_len:]}"
+
+
+def format_fiat(amount: Union[float, decimal.Decimal], currency: str = "USD") -> str:
+    """Format numerical amount into standardized fiat representation."""
+    val = decimal.Decimal(str(amount))
+    symbols = {"USD": "$", "EUR": "€", "GBP": "£"}
+    symbol = symbols.get(currency.upper(), f"{currency.upper()} ")
+    return f"{symbol}{val:,.2f}"
