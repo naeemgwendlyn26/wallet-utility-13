@@ -1,31 +1,47 @@
 import logging
-import sys
 from typing import Optional
 
+
 class WalletLogger:
-    """Centralized logging for crypto operations with exception handling."""
-    def __init__(self, name: str = "wallet-utility-13"):
-        self.logger = logging.getLogger(name)
-        self._setup_logger()
+    """Structured logger tailored for crypto wallet utility operations."""
 
-    def _setup_logger(self) -> None:
-        handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
-        self.logger.setLevel(logging.INFO)
+    def __init__(self, name: str = "wallet_utility", level: int = logging.INFO) -> None:
+        """Initialize the logger with standard formatting."""
+        self.logger: logging.Logger = logging.getLogger(name)
+        self.logger.setLevel(level)
 
-    def log_error(self, message: str, exc: Optional[Exception] = None) -> None:
-        """Sanitized error logging for crypto-sensitive flows."""
+        if not self.logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter(
+                "[%(asctime)s] [%(levelname)s] %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S"
+            )
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
+
+    @staticmethod
+    def mask_address(address: str) -> str:
+        """Mask a wallet address or sensitive hash for safe logging."""
+        if not address or len(address) < 10:
+            return "***"
+        return f"{address[:6]}...{address[-4:]}"
+
+    def log_tx(self, tx_hash: str, status: str, amount: Optional[float] = None) -> None:
+        """Log a cryptocurrency transaction event with sanitized output."""
+        masked_hash = self.mask_address(tx_hash)
+        if amount is not None:
+            msg = f"Tx {masked_hash} | Status: {status} | Amount: {amount:.4f}"
+        else:
+            msg = f"Tx {masked_hash} | Status: {status}"
+        self.logger.info(msg)
+
+    def info(self, message: str) -> None:
+        """Log an informational message."""
+        self.logger.info(message)
+
+    def error(self, message: str, exc: Optional[Exception] = None) -> None:
+        """Log an error message with optional exception details."""
         if exc:
-            error_type = type(exc).__name__
-            self.logger.error(f"{message} | Error: {error_type} | Details: {str(exc)}")
+            self.logger.error(f"{message} - Error: {exc}")
         else:
             self.logger.error(message)
-
-    def log_tx_failure(self, tx_hash: str, reason: str) -> None:
-        """Standardized logging for blockchain transaction edge cases."""
-        if not tx_hash:
-            self.logger.warning("Attempted to log transaction failure with empty hash")
-            return
-        self.logger.error(f"Transaction failed: {tx_hash} | Reason: {reason}")
