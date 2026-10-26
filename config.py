@@ -3,34 +3,33 @@ import json
 from typing import Any, Dict
 
 DEFAULT_CONFIG = {
-    "rpc_url": "https://mainnet.infura.io/v3/",
+    "network": "mainnet",
+    "rpc_url": "https://cloudflare-eth.com",
     "timeout": 30,
-    "retries": 3,
-    "log_level": "INFO"
+    "retry_attempts": 3
 }
 
-def load_config(path: str = "config.json") -> Dict[str, Any]:
-    """Load configuration from file with fallback to defaults."""
-    config = DEFAULT_CONFIG.copy()
-    
-    if os.path.exists(path):
-        try:
-            with open(path, "r") as f:
-                user_config = json.load(f)
-                config.update(user_config)
-        except (json.JSONDecodeError, IOError):
-            print(f"Warning: Could not parse {path}, using defaults")
-            
-    return config
+class ConfigLoader:
+    """Handles loading and merging of crypto wallet configurations."""
+    def __init__(self, config_path: str = "config.json"):
+        self.config_path = config_path
+        self.data = self._load()
 
-def get_env_var(key: str, default: Any) -> Any:
-    """Fetch environment variable with type-casted default."""
-    val = os.getenv(key)
-    if val is None:
-        return default
-    
-    # Cast based on default type
-    try:
-        return type(default)(val)
-    except (ValueError, TypeError):
-        return default
+    def _load(self) -> Dict[str, Any]:
+        if not os.path.exists(self.config_path):
+            return DEFAULT_CONFIG
+        
+        try:
+            with open(self.config_path, "r") as f:
+                user_config = json.load(f)
+                # Merge user config with defaults
+                return {**DEFAULT_CONFIG, **user_config}
+        except (json.JSONDecodeError, IOError):
+            return DEFAULT_CONFIG
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Retrieve a configuration value by key."""
+        return self.data.get(key, default)
+
+# Singleton instance for application-wide use
+settings = ConfigLoader()
