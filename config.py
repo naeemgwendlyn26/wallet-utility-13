@@ -1,34 +1,36 @@
-import json
 import os
+import json
 from typing import Any, Dict
 
 DEFAULT_CONFIG = {
-    "network": "mainnet",
+    "rpc_url": "https://mainnet.infura.io/v3/",
     "timeout": 30,
-    "retry_attempts": 3,
+    "retries": 3,
     "log_level": "INFO"
 }
 
-def load_config(config_path: str = "config.json") -> Dict[str, Any]:
-    """
-    Loads configuration from a JSON file, merging with default values.
-    Returns the resulting dictionary after merging.
-    """
+def load_config(path: str = "config.json") -> Dict[str, Any]:
+    """Load configuration from file with fallback to defaults."""
     config = DEFAULT_CONFIG.copy()
     
-    if os.path.exists(config_path):
+    if os.path.exists(path):
         try:
-            with open(config_path, "r") as f:
+            with open(path, "r") as f:
                 user_config = json.load(f)
                 config.update(user_config)
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"Warning: Could not load config {config_path}: {e}. Using defaults.")
-    
+        except (json.JSONDecodeError, IOError):
+            print(f"Warning: Could not parse {path}, using defaults")
+            
     return config
 
-def get_config_value(key: str, default: Any = None) -> Any:
-    """
-    Helper to fetch specific configuration values.
-    """
-    config = load_config()
-    return config.get(key, default)
+def get_env_var(key: str, default: Any) -> Any:
+    """Fetch environment variable with type-casted default."""
+    val = os.getenv(key)
+    if val is None:
+        return default
+    
+    # Cast based on default type
+    try:
+        return type(default)(val)
+    except (ValueError, TypeError):
+        return default
