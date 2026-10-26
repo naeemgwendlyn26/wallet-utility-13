@@ -1,36 +1,20 @@
 import re
 
-class AddressValidationError(Exception):
-    """Custom exception for crypto address validation issues."""
-    pass
+def validate_address(address: str) -> bool:
+    """Verify ethereum-style address format."""
+    return bool(re.match(r'^0x[a-fA-F0-9]{40}$', address))
 
-def validate_evm_address(address: str) -> bool:
-    """
-    Validates EVM-compatible wallet addresses using regex.
-    Raises AddressValidationError if input format is invalid.
-    """
-    if not isinstance(address, str):
-        raise AddressValidationError("Address must be a string")
-    
-    # Check for hex prefix and standard length
-    if not re.match(r'^0x[a-fA-F0-9]{40}$', address):
-        raise AddressValidationError(f"Invalid format for address: {address}")
-        
-    return True
+def validate_amount(amount: float) -> bool:
+    """Ensure transaction amount is positive."""
+    return isinstance(amount, (int, float)) and amount > 0
 
-def sanitize_input(data: str) -> str:
-    """
-    Basic sanitization to prevent malformed string processing.
-    """
-    if not data:
-        return ""
-    return str(data).strip().lower()
-
-def safe_check(address: str) -> bool:
-    """
-    Wrapper for validation with error containment.
-    """
-    try:
-        return validate_evm_address(sanitize_input(address))
-    except AddressValidationError:
+def validate_payload(data: dict) -> bool:
+    """Main loop input validation check."""
+    required = ['address', 'amount', 'currency']
+    if not all(k in data for k in required):
         return False
+    if not validate_address(data['address']):
+        return False
+    if not validate_amount(data['amount']):
+        return False
+    return True
