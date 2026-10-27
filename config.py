@@ -4,32 +4,31 @@ from typing import Any, Dict
 
 DEFAULT_CONFIG = {
     "network": "mainnet",
-    "rpc_url": "https://cloudflare-eth.com",
+    "rpc_url": "https://rpc.mainnet.cryptonode.com",
     "timeout": 30,
     "retry_attempts": 3
 }
 
-class ConfigLoader:
-    """Handles loading and merging of crypto wallet configurations."""
-    def __init__(self, config_path: str = "config.json"):
-        self.config_path = config_path
-        self.data = self._load()
+def load_config(config_path: str = "config.json") -> Dict[str, Any]:
+    """Load configuration from file with fallback to defaults."""
+    config = DEFAULT_CONFIG.copy()
 
-    def _load(self) -> Dict[str, Any]:
-        if not os.path.exists(self.config_path):
-            return DEFAULT_CONFIG
-        
+    if os.path.exists(config_path):
         try:
-            with open(self.config_path, "r") as f:
+            with open(config_path, "r") as f:
                 user_config = json.load(f)
-                # Merge user config with defaults
-                return {**DEFAULT_CONFIG, **user_config}
+                config.update(user_config)
         except (json.JSONDecodeError, IOError):
-            return DEFAULT_CONFIG
+            pass
 
-    def get(self, key: str, default: Any = None) -> Any:
-        """Retrieve a configuration value by key."""
-        return self.data.get(key, default)
+    return config
 
-# Singleton instance for application-wide use
-settings = ConfigLoader()
+def get_setting(key: str, default: Any = None) -> Any:
+    """Retrieve specific setting from current runtime config."""
+    config = load_config()
+    return config.get(key, default)
+
+if __name__ == "__main__":
+    # Example usage for wallet-utility-13 initialization
+    current_cfg = load_config()
+    print(f"Loaded configuration for {current_cfg.get('network')}")
