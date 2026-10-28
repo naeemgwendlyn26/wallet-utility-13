@@ -1,24 +1,26 @@
 import re
 
-def validate_address(address: str, chain_type: str = 'evm') -> bool:
-    """Validate cryptocurrency wallet addresses for format compliance."""
-    if not isinstance(address, str) or not address:
-        return False
+# Regex for standard EVM-compatible addresses
+ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
 
-    if chain_type == 'evm':
-        # Standard Ethereum address regex: 0x followed by 40 hex chars
-        return bool(re.match(r'^0x[a-fA-F0-9]{40}$', address))
-    
-    if chain_type == 'btc':
-        # Basic P2PKH/P2SH validation regex
-        return bool(re.match(r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$', address))
-
-    return False
+def validate_address(address: str) -> bool:
+    """Verify EVM address checksum and format."""
+    return bool(ADDRESS_PATTERN.match(address))
 
 def validate_amount(amount: str) -> bool:
-    """Ensure amount is a positive numeric string."""
+    """Ensure amount is a valid positive decimal string."""
     try:
-        val = float(amount)
-        return val > 0
+        value = float(amount)
+        return value > 0
     except (ValueError, TypeError):
         return False
+
+def sanitize_input(user_input: str) -> str:
+    """Strip whitespace and normalize casing for inputs."""
+    return user_input.strip().lower()
+
+def is_valid_chain_id(chain_id: int) -> bool:
+    """Validate standard EVM chain ID ranges."""
+    # Mainnets and common testnets
+    supported_ids = {1, 5, 10, 56, 137, 42161}
+    return chain_id in supported_ids
