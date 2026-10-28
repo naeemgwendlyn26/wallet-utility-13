@@ -1,67 +1,51 @@
-import re
-from decimal import Decimal
-from typing import Union, Dict, Any, Optional
+import functools
+import logging
+import time
+from typing import Any, Callable, Tuple, Type
 
-WEI_PER_ETH = Decimal("1000000000000000000")
-SATOSHI_PER_BTC = Decimal("100000000")
-
-
-def wei_to_eth(wei_amount: Union[int, str, Decimal]) -> Decimal:
-    """Convert an amount in Wei to Ether.
-
-    Args:
-        wei_amount: The balance in Wei as integer, string, or Decimal.
-
-    Returns:
-        The equivalent amount in Ether as Decimal.
-    """
-    amount = Decimal(str(wei_amount))
-    return amount / WEI_PER_ETH
+logger = logging.getLogger(__name__)
 
 
-def eth_to_wei(eth_amount: Union[float, str, Decimal]) -> int:
-    """Convert an amount in Ether to Wei.
+def retry_network_op(
+    max_retries: int = 3,
+    initial_delay: float = 1.0,
+    backoff_factor: float = 2.0,
+    retry_exceptions: Tuple[Type[BaseException], ...] = (Exception,),
+) -> Callable:
+    """Decorator to retry network operations with exponential backoff."""
 
-    Args:
-        eth_amount: The balance in Ether as float, string, or Decimal.
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            delay = initial_delay
+            for attempt in range(1, max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except retry_exceptions as exc:
+                    if attempt == max_retries:
+                        logger.error(
+                            f"Failed {func.__name__} after {max_retries} attempts: {exc}"
+                        )
+                        raise exc
 
-    Returns:
-        The equivalent amount in Wei as an integer.
-    """
-    amount = Decimal(str(eth_amount))
-    return int(amount * WEI_PER_ETH)
+                    logger.warning(
+                        f"Attempt {attempt}/{max_retries} for {func.__name__} failed: {exc}. "
+                        f"Retrying in {delay:.2f}s..."
+                    )
+                    time.sleep(delay)
+                    delay *= backoff_factor
 
+        return wrapper
 
-def format_address(address: str, prefix_len: int = 6, suffix_len: int = 4) -> str:
-    """Truncate a crypto address for user interface display.
-
-    Args:
-        address: The full wallet address string.
-        prefix_len: Number of characters to keep at the start.
-        suffix_len: Number of characters to keep at the end.
-
-    Returns:
-        Shortened address with ellipsis in the middle, or original if short.
-    """
-    if not address:
-        return ""
-    min_len = prefix_len + suffix_len + 3
-    if len(address) <= min_len:
-        return address
-    return f"{address[:prefix_len]}...{address[-suffix_len:]}"
+    return decorator
 
 
-def validate_hex_address(address: str, expected_length: int = 42) -> bool:
-    """Check if a string is a valid hex crypto address.
+def fetch_rpc_data_with_retry(
+    fetch_fn: Callable[[], Any], retries: int = 3
+) -> Any:
+    """Utility wrapper to execute an RPC call with retry support."""
+    @retry_network_op(max_retries=retries)
+    def _execute():
+        return fetch_fn()
 
-    Args:
-        address: The wallet address to validate.
-        expected_length: Expected total length including '0x' prefix.
-
-    Returns:
-        True if the address is valid hex with matching length.
-    """
-    if not isinstance(address, str):
-        return False
-    pattern = f"^0x[a-fA-F0-9]{{{expected_length - 2}}}$"
-    return bool(re.match(pattern, address))
+    return _execute()
