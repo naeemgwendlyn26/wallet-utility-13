@@ -1,41 +1,40 @@
 import hashlib
-import functools
-from typing import List, Dict, Tuple
+from functools import lru_cache
+from typing import Dict, List, Tuple
 
-class CoreWalletProcessor:
-    """Core utility for optimized crypto key derivation and address checking."""
 
-    def __init__(self, network_prefix: bytes = b'\x00'):
-        self.network_prefix = network_prefix
+class FastCryptoCore:
+    """Core cryptographic utility with optimized hashing and lookups."""
+
+    def __init__(self, cache_size: int = 2048):
+        self.cache_size = cache_size
 
     @staticmethod
-    @functools.lru_cache(maxsize=4096)
-    def derive_address_fast(pubkey_bytes: bytes) -> str:
-        """Derive standard wallet address from public key using cached hashing logic."""
-        sha_hash = hashlib.sha256(pubkey_bytes).digest()
-        ripemd_hash = hashlib.new('ripemd160', sha_hash).digest()
-        checksum = hashlib.sha256(hashlib.sha256(ripemd_hash).digest()).digest()[:4]
-        full_payload = ripemd_hash + checksum
-        return full_payload.hex()
+    @lru_cache(maxsize=2048)
+    def double_sha256(data: bytes) -> bytes:
+        """Compute double SHA-256 hash with memoization for repeated payloads."""
+        return hashlib.sha256(hashlib.sha256(data).digest()).digest()
 
-    def batch_process_signatures(
-        self, transactions: List[Dict[str, bytes]]
-    ) -> List[Tuple[str, bool]]:
-        """Batch process transaction public keys with caching to maximize throughput."""
-        results = []
-        for tx in transactions:
-            pubkey = tx.get('pubkey')
-            signature = tx.get('signature')
-            if not pubkey or not signature:
-                results.append(("", False))
-                continue
+    @staticmethod
+    @lru_cache(maxsize=1024)
+    def fast_address_validate(address: str) -> bool:
+        """Validate address structure using cached pattern checking."""
+        if not address or len(address) < 26 or len(address) > 90:
+            return False
+        valid_prefixes = ("1", "3", "bc1", "0x")
+        return address.startswith(valid_prefixes)
 
-            address = self.derive_address_fast(pubkey)
-            is_valid_len = len(signature) in (64, 65)
-            results.append((address, is_valid_len))
+    def batch_hash_payloads(self, payloads: List[bytes]) -> Dict[bytes, bytes]:
+        """Process batch of payloads utilizing cached double SHA-256."""
+        return {data: self.double_sha256(data) for data in payloads}
 
-        return results
-
-    def clear_derivation_cache(self) -> None:
-        """Reset memory cache for key derivations."""
-        self.derive_address_fast.cache_clear()
+    def deduplicate_utxos(self, utxos: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """Fast UTXO deduplication using set-based hash tracking."""
+        seen = set()
+        unique_utxos = []
+        for utxo in utxos:
+            key = (utxo.get("txid"), utxo.get("vout"))
+            if key not in seen:
+                seen.add(key)
+                unique_utxos.append(utxo)
+        return unique_utxos
