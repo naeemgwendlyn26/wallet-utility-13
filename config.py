@@ -1,34 +1,49 @@
-import os
 import json
-from typing import Any, Dict
+import os
+from typing import Any, Dict, Optional
 
-DEFAULT_CONFIG = {
+DEFAULT_CONFIG: Dict[str, Any] = {
     "network": "mainnet",
-    "rpc_url": "https://rpc.mainnet.cryptonode.com",
-    "timeout": 30,
-    "retry_attempts": 3
+    "rpc_url": "https://eth-mainnet.g.alchemy.com/v2/demo",
+    "request_timeout": 30,
+    "max_retries": 3,
+    "gas_limit_multiplier": 1.1,
+    "enable_logging": True,
 }
 
-def load_config(config_path: str = "config.json") -> Dict[str, Any]:
-    """Load configuration from file with fallback to defaults."""
-    config = DEFAULT_CONFIG.copy()
 
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, "r") as f:
-                user_config = json.load(f)
-                config.update(user_config)
-        except (json.JSONDecodeError, IOError):
-            pass
+class ConfigLoader:
+    """Manages loading and merging application settings for wallet operations."""
 
-    return config
+    def __init__(self, config_path: Optional[str] = None):
+        self.config_path = config_path
+        self._config: Dict[str, Any] = DEFAULT_CONFIG.copy()
 
-def get_setting(key: str, default: Any = None) -> Any:
-    """Retrieve specific setting from current runtime config."""
-    config = load_config()
-    return config.get(key, default)
+    def load(self) -> Dict[str, Any]:
+        """Loads configuration from file and env vars, merging with defaults."""
+        if self.config_path and os.path.exists(self.config_path):
+            try:
+                with open(self.config_path, "r", encoding="utf-8") as f:
+                    file_config = json.load(f)
+                    if isinstance(file_config, dict):
+                        self._config.update(file_config)
+            except (json.JSONDecodeError, OSError) as err:
+                print(f"Warning: Failed to load config file: {err}")
 
-if __name__ == "__main__":
-    # Example usage for wallet-utility-13 initialization
-    current_cfg = load_config()
-    print(f"Loaded configuration for {current_cfg.get('network')}")
+        env_network = os.getenv("WALLET_NETWORK")
+        if env_network:
+            self._config["network"] = env_network
+
+        env_rpc = os.getenv("WALLET_RPC_URL")
+        if env_rpc:
+            self._config["rpc_url"] = env_rpc
+
+        env_timeout = os.getenv("WALLET_TIMEOUT")
+        if env_timeout and env_timeout.isdigit():
+            self._config["request_timeout"] = int(env_timeout)
+
+        return self._config
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Retrieves a specific configuration parameter."""
+        return self._config.get(key, default)
