@@ -1,52 +1,49 @@
 # wallet-utility-13
 
-A high-performance Python toolkit designed for seamless cryptocurrency wallet management and cryptographic operations. This utility provides a streamlined interface for interacting with blockchain assets while prioritizing security and speed.
+A high-performance Python toolkit designed for seamless cryptocurrency wallet management and cryptographic operations. This utility provides a streamlined interface for key derivation, transaction signing, and balance monitoring across multiple EVM-compatible networks.
 
 ## Features
 
-*   **HD Wallet Generation:** Securely derive hierarchical deterministic wallets (BIP39/BIP44) with customizable derivation paths.
-*   **Balance Aggregation:** Multi-chain support for querying wallet balances across EVM-compatible networks via integrated RPC nodes.
-*   **Encrypted Export:** Batch export private keys or mnemonics into AES-256 encrypted local storage files.
-*   **Transaction Signing:** Minimalist library for offline transaction signing to ensure private keys never expose to the network layer.
+*   **BIP-39 Implementation:** Generate secure, industry-standard mnemonic phrases and hierarchical deterministic (HD) wallets with customizable derivation paths.
+*   **Multi-Chain Support:** Native integration for signing transactions and querying RPC nodes across Ethereum, BSC, Polygon, and Arbitrum.
+*   **Encrypted Storage:** Built-in AES-256 local keystore utility to protect sensitive private keys and sensitive configuration data at rest.
+*   **Balance Aggregator:** Lightweight asynchronous fetching of token balances using `aiohttp` for rapid, concurrent portfolio snapshots.
 
 ## Installation
 
-Ensure you have Python 3.9+ installed. It is recommended to use a virtual environment:
+Ensure you have Python 3.10+ installed. Clone the repository and install the required dependencies via `pip`:
 
 ```bash
-# Clone the repository
 git clone https://github.com/Developer/wallet-utility-13.git
 cd wallet-utility-13
-
-# Install dependencies
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Basic Usage
+## Usage
 
-The following example demonstrates how to generate a new wallet and retrieve its corresponding address:
+This snippet demonstrates how to generate a new wallet and derive the corresponding public address:
 
 ```python
 from wallet_utility import WalletManager
 
-# Initialize the manager
+# Initialize manager
 manager = WalletManager()
 
-# Generate a new BIP39 mnemonic
-mnemonic = manager.generate_mnemonic()
+# Create new HD wallet
+mnemonic, address = manager.create_new_wallet()
 
-# Derive the primary wallet address
-wallet = manager.derive_wallet(mnemonic, path="m/44'/60'/0'/0/0")
+print(f"Address: {address}")
+print(f"Mnemonic: {mnemonic}")
 
-print(f"Address: {wallet.address}")
-print(f"Private Key: {wallet.private_key}")
+# Sign a transaction
+tx_hash = manager.sign_transaction(private_key, to_address, amount=0.01)
+print(f"Transaction broadcasted: {tx_hash}")
 ```
-
-## Security Warning
-This utility handles sensitive cryptographic material. Always run in a secure, air-gapped environment when performing mainnet transactions. Never share your mnemonic or private keys with anyone.
 
 ## License
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Distributed under the MIT License. See `LICENSE` for more information.
