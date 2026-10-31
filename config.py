@@ -1,49 +1,58 @@
 import json
 import os
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, Optional
 
-DEFAULT_CONFIG: Dict[str, Any] = {
+DEFAULT_CONFIG_PATH = Path.home() / ".wallet_utility" / "config.json"
+
+DEFAULT_SETTINGS: Dict[str, Any] = {
     "network": "mainnet",
     "rpc_url": "https://eth-mainnet.g.alchemy.com/v2/demo",
     "request_timeout": 30,
     "max_retries": 3,
     "gas_limit_multiplier": 1.1,
-    "enable_logging": True,
+    "enable_cache": True,
 }
 
 
-class ConfigLoader:
-    """Manages loading and merging application settings for wallet operations."""
+@dataclass
+class WalletConfig:
+    network: str = DEFAULT_SETTINGS["network"]
+    rpc_url: str = DEFAULT_SETTINGS["rpc_url"]
+    request_timeout: int = DEFAULT_SETTINGS["request_timeout"]
+    max_retries: int = DEFAULT_SETTINGS["max_retries"]
+    gas_limit_multiplier: float = DEFAULT_SETTINGS["gas_limit_multiplier"]
+    enable_cache: bool = DEFAULT_SETTINGS["enable_cache"]
 
-    def __init__(self, config_path: Optional[str] = None):
-        self.config_path = config_path
-        self._config: Dict[str, Any] = DEFAULT_CONFIG.copy()
+    @classmethod
+    def load(cls, config_path: Optional[Path] = None) -> "WalletConfig":
+        """Load configuration from a JSON file and environment variables."""
+        path = config_path or DEFAULT_CONFIG_PATH
+        config_data = DEFAULT_SETTINGS.copy()
 
-    def load(self) -> Dict[str, Any]:
-        """Loads configuration from file and env vars, merging with defaults."""
-        if self.config_path and os.path.exists(self.config_path):
+        if path.exists():
             try:
-                with open(self.config_path, "r", encoding="utf-8") as f:
-                    file_config = json.load(f)
-                    if isinstance(file_config, dict):
-                        self._config.update(file_config)
+                with open(path, "r", encoding="utf-8") as f:
+                    file_data = json.load(f)
+                    config_data.update(file_data)
             except (json.JSONDecodeError, OSError) as err:
-                print(f"Warning: Failed to load config file: {err}")
+                print(f"Warning: Failed to load config from {path}: {err}")
 
+        # Override with environment variables if present
         env_network = os.getenv("WALLET_NETWORK")
         if env_network:
-            self._config["network"] = env_network
+            config_data["network"] = env_network
 
         env_rpc = os.getenv("WALLET_RPC_URL")
         if env_rpc:
-            self._config["rpc_url"] = env_rpc
+            config_data["rpc_url"] = env_rpc
 
-        env_timeout = os.getenv("WALLET_TIMEOUT")
-        if env_timeout and env_timeout.isdigit():
-            self._config["request_timeout"] = int(env_timeout)
-
-        return self._config
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Retrieves a specific configuration parameter."""
-        return self._config.get(key, default)
+        return cls(
+            network=str(config_data.get("network", DEFAULT_SETTINGS["network"])),
+            rpc_url=str(config_data.get("rpc_url", DEFAULT_SETTINGS["rpc_url"])),
+            request_timeout=int(config_data.get("request_timeout", DEFAULT_SETTINGS["request_timeout"])),
+            max_retries=int(config_data.get("max_retries", DEFAULT_SETTINGS["max_retries"])),
+            gas_limit_multiplier=float(config_data.get("gas_limit_multiplier", DEFAULT_SETTINGS["gas_limit_multiplier"])),
+            enable_cache=bool(config_data.get("enable_cache", DEFAULT_SETTINGS["enable_cache"])),
+        )
