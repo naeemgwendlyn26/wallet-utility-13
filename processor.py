@@ -1,34 +1,35 @@
-from decimal import Decimal, ROUND_HALF_UP
-from typing import Dict, Optional
+import logging
+from typing import Dict, List, Optional
 
-class CryptoProcessor:
-    """Handles precision formatting and normalization of crypto assets."""
+logger = logging.getLogger(__name__)
 
-    DEFAULT_PRECISION = 8
+class TransactionProcessor:
+    """Handles batch processing of cryptocurrency transactions."""
 
-    @staticmethod
-    def format_amount(amount: float, precision: int = DEFAULT_PRECISION) -> str:
-        """Convert float amounts to consistent string representation."""
-        if not isinstance(amount, (int, float)):
-            raise ValueError("Amount must be a numeric type")
-        
-        factor = Decimal(10) ** -precision
-        d_amount = Decimal(str(amount)).quantize(factor, rounding=ROUND_HALF_UP)
-        return format(d_amount, f'f')
+    def __init__(self, network_fee: float = 0.0001):
+        self.network_fee = network_fee
+        self.processed_count = 0
 
-    @classmethod
-    def normalize_tx_data(cls, data: Dict[str, any]) -> Dict[str, any]:
-        """Sanitize transaction dictionary for backend persistence."""
-        return {
-            "tx_hash": str(data.get("hash", "")).lower(),
-            "asset": str(data.get("symbol", "")).upper(),
-            "value": cls.format_amount(float(data.get("amount", 0))),
-            "timestamp": int(data.get("ts", 0))
-        }
+    def validate_batch(self, tx_list: List[Dict]) -> bool:
+        """Ensures all transactions in a list are structurally valid."""
+        return all('address' in tx and 'amount' in tx for tx in tx_list)
 
-    @staticmethod
-    def validate_asset_code(code: Optional[str]) -> bool:
-        """Simple check for crypto asset ticker validity."""
-        if not code or not isinstance(code, str):
-            return False
-        return 2 <= len(code) <= 10 and code.isalnum()
+    def execute_batch(self, tx_list: List[Dict]) -> Optional[str]:
+        """Executes a batch of validated transactions."""
+        if not self.validate_batch(tx_list):
+            logger.error("Batch validation failed")
+            return None
+
+        try:
+            for tx in tx_list:
+                amount = tx['amount'] - self.network_fee
+                logger.info(f"Processing {amount} to {tx['address']}")
+                self.processed_count += 1
+            return "success"
+        except Exception as e:
+            logger.error(f"Execution error: {str(e)}")
+            return None
+
+    def get_status(self) -> Dict[str, int]:
+        """Returns metrics on current processing session."""
+        return {"processed": self.processed_count, "fee": self.network_fee}
