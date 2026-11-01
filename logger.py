@@ -1,30 +1,36 @@
 import logging
 import sys
+from pathlib import Path
 
-def setup_logger(name: str, level: int = logging.INFO) -> logging.Logger:
-    """Configures a standard console logger for wallet operations."""
+# Configure standard logging for wallet-utility-13
+LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+LOG_DIR = Path("logs")
+LOG_FILE = LOG_DIR / "wallet.log"
+
+def get_logger(name: str) -> logging.Logger:
+    """Initializes and returns a configured logger instance."""
+    LOG_DIR.mkdir(exist_ok=True)
+    
     logger = logging.getLogger(name)
-    logger.setLevel(level)
-
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-
-    # Prevent duplicate handlers if setup is called multiple times
+    logger.setLevel(logging.INFO)
+    
+    # Prevent duplicate handlers if logger is re-initialized
     if not logger.handlers:
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-
+        formatter = logging.Formatter(LOG_FORMAT)
+        
+        # File handler for persistent storage
+        file_handler = logging.FileHandler(LOG_FILE)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+        
+        # Stream handler for console feedback
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setFormatter(formatter)
+        logger.addHandler(stream_handler)
+        
     return logger
 
-def log_transaction(logger: logging.Logger, tx_hash: str, status: str) -> None:
-    """Standardizes logging for blockchain transaction lifecycle events."""
-    logger.info(f"Transaction [{tx_hash}] status update: {status}")
-
-def log_error(logger: logging.Logger, message: str, exc: Exception = None) -> None:
-    """Formats error messages with optional exception details."""
-    error_msg = f"Error: {message}"
-    if exc:
-        error_msg += f" | Details: {str(exc)}"
-    logger.error(error_msg)
+def log_transaction(tx_hash: str, status: str, amount: float):
+    """Centralized logging for crypto transaction events."""
+    logger = get_logger("transaction")
+    logger.info(f"Tx: {tx_hash} | Status: {status} | Amount: {amount}")
