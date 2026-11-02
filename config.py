@@ -1,28 +1,36 @@
-from typing import Dict, Any, Optional
 import os
+import json
+from typing import Any, Dict
 
-class Config:
-    """Manages configuration settings for wallet-utility-13."""
+class ConfigLoader:
+    """Handles application configuration with fallback defaults."""
+    
+    DEFAULT_CONFIG = {
+        "rpc_url": "https://mainnet.infura.io/v3/",
+        "timeout": 30,
+        "retries": 3,
+        "verify_ssl": True
+    }
 
-    def __init__(self, env: str = "production") -> None:
-        self.env: str = env
-        self.settings: Dict[str, Any] = {
-            "rpc_url": os.getenv("RPC_URL", "https://mainnet.infura.io/v3/default"),
-            "timeout": int(os.getenv("TIMEOUT", 30)),
-            "retry_attempts": 3
-        }
+    def __init__(self, config_path: str = "config.json"):
+        self.config_path = config_path
+        self.settings = self.load_config()
 
-    def get(self, key: str, default: Optional[Any] = None) -> Any:
-        """Retrieve a configuration value by key."""
+    def load_config(self) -> Dict[str, Any]:
+        """Loads config from file or returns defaults if missing."""
+        if not os.path.exists(self.config_path):
+            return self.DEFAULT_CONFIG
+
+        try:
+            with open(self.config_path, "r") as f:
+                user_config = json.load(f)
+            return {**self.DEFAULT_CONFIG, **user_config}
+        except (json.JSONDecodeError, IOError):
+            return self.DEFAULT_CONFIG
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Access configuration keys safely."""
         return self.settings.get(key, default)
 
-    def update(self, key: str, value: Any) -> None:
-        """Update a configuration setting."""
-        self.settings[key] = value
-
-def load_config() -> Config:
-    """Factory function to initialize config object."""
-    return Config(env=os.getenv("APP_ENV", "production"))
-
-# Global config instance
-app_config: Config = load_config()
+# Instantiate global config for the wallet-utility-13 module
+config = ConfigLoader()
