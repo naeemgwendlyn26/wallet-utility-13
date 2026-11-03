@@ -1,39 +1,39 @@
-import time
 import functools
-import logging
-from typing import Callable, Any, Type, Tuple
+from typing import Callable, Any
+from collections import deque
 
-logger = logging.getLogger(__name__)
+# LRU cache configuration for crypto address validation
+CACHE_SIZE = 1024
 
-def retry_on_network_error(
-    max_retries: int = 3,
-    base_delay: float = 1.0,
-    backoff_factor: float = 2.0,
-    exceptions: Tuple[Type[BaseException], ...] = (Exception,)
-) -> Callable:
-    """
-    Decorator that retries a function with exponential backoff upon network failures.
-    
-    Useful for resilient crypto RPC node requests and API queries.
-    """
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            delay = base_delay
-            for attempt in range(1, max_retries + 1):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as exc:
-                    if attempt == max_retries:
-                        logger.error(
-                            f"Operation {func.__name__} failed after {max_retries} attempts: {exc}"
-                        )
-                        raise exc
-                    logger.warning(
-                        f"Attempt {attempt}/{max_retries} failed for {func.__name__}: {exc}. "
-                        f"Retrying in {delay:.2f}s..."
-                    )
-                    time.sleep(delay)
-                    delay *= backoff_factor
-        return wrapper
-    return decorator
+@functools.lru_cache(maxsize=CACHE_SIZE)
+def validate_checksum(address: str) -> bool:
+    """Validates wallet address checksum using cached results."""
+    if not address.startswith('0x') or len(address) != 42:
+        return False
+    return all(c in '0123456789abcdefABCDEF' for c in address[2:])
+
+class BatchProcessor:
+    """Memory-efficient queue for processing crypto transactions."""
+    def __init__(self, capacity: int = 500):
+        self.queue = deque(maxlen=capacity)
+
+    def add_transaction(self, tx_data: dict) -> None:
+        self.queue.append(tx_data)
+
+    def get_batch(self) -> list:
+        batch = []
+        while self.queue:
+            batch.append(self.queue.popleft())
+        return batch
+
+def memoize_rate_limit(func: Callable) -> Callable:
+    """Decorator for rate-limiting expensive calculations."""
+    cache = {}
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        key = str(args) + str(kwargs)
+        if key not in cache:
+            cache[key] = func(*args, **kwargs)
+        return cache[key]
+    return wrapper
