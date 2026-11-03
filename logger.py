@@ -1,31 +1,50 @@
+import os
+import sys
 import logging
 from logging.handlers import RotatingFileHandler
-import os
+from typing import Optional
 
-def setup_logger(name: str = "wallet-utility-13", log_file: str = "wallet.log") -> logging.Logger:
-    """Configures a rotating file logger for crypto operations."""
+DEFAULT_LOG_FORMAT = "%(asctime)s - %(name)s - [%(levelname)s] - %(message)s"
+DEFAULT_LOG_FILE = "logs/wallet_utility.log"
+
+
+def setup_logger(
+    name: str = "wallet_utility",
+    log_file: Optional[str] = DEFAULT_LOG_FILE,
+    level: int = logging.INFO,
+    max_bytes: int = 5 * 1024 * 1024,
+    backup_count: int = 5
+) -> logging.Logger:
+    """Configures and returns a logger instance with console and rotating file handlers."""
     logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(level)
 
     # Prevent duplicate handlers if re-initialized
-    if not logger.handlers:
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+    if logger.handlers:
+        return logger
 
-        # Rotate logs at 5MB, keep 3 historical backups
+    formatter = logging.Formatter(DEFAULT_LOG_FORMAT)
+
+    # Console handler outputting to standard output
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(level)
+    logger.addHandler(console_handler)
+
+    # Rotating file handler for crypto operation audits
+    if log_file:
+        log_dir = os.path.dirname(log_file)
+        if log_dir:
+            os.makedirs(log_dir, exist_ok=True)
+
         file_handler = RotatingFileHandler(
-            log_file, maxBytes=5 * 1024 * 1024, backupCount=3
+            log_file,
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+            encoding="utf-8"
         )
         file_handler.setFormatter(formatter)
-
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-
+        file_handler.setLevel(level)
         logger.addHandler(file_handler)
-        logger.addHandler(console_handler)
 
     return logger
-
-# Instance for quick import
-logger = setup_logger()
