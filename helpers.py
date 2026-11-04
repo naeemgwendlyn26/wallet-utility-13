@@ -1,38 +1,36 @@
-from decimal import Decimal, ROUND_DOWN
-from typing import Union
+import logging
+from typing import Optional, Any
 
+logger = logging.getLogger(__name__)
 
-def format_address(address: str, prefix_len: int = 6, suffix_len: int = 4) -> str:
-    """Truncate a crypto address for display purposes (e.g., 0x1234...abcd)."""
-    if not address or len(address) <= prefix_len + suffix_len:
-        return address
-    return f"{address[:prefix_len]}...{address[-suffix_len:]}"
+class WalletError(Exception):
+    """Base exception for wallet-utility-13 operations."""
+    pass
 
+def validate_address(address: str) -> bool:
+    """Basic length and character validation for addresses."""
+    if not isinstance(address, str):
+        return False
+    return 26 <= len(address) <= 42 and address.isalnum()
 
-def wei_to_ether(wei_value: Union[int, str]) -> Decimal:
-    """Convert value from Wei to Ether with exact precision."""
-    wei = Decimal(str(wei_value))
-    return wei / (Decimal("10") ** 18)
+def safe_execute(func: callable, *args: Any, **kwargs: Any) -> Optional[Any]:
+    """Wrapper to catch execution errors during crypto processing."""
+    try:
+        return func(*args, **kwargs)
+    except (ValueError, TypeError, ConnectionError) as e:
+        logger.error(f"Execution failed in {func.__name__}: {str(e)}")
+        return None
+    except Exception as e:
+        logger.critical(f"Unexpected system failure: {str(e)}")
+        raise WalletError("Critical failure in wallet-utility-13") from e
 
-
-def ether_to_wei(ether_value: Union[float, str, Decimal]) -> int:
-    """Convert value from Ether to Wei as integer."""
-    ether = Decimal(str(ether_value))
-    return int(ether * (Decimal("10") ** 18))
-
-
-def format_crypto_balance(
-    amount: Union[int, float, str, Decimal],
-    decimals: int = 18,
-    display_decimals: int = 4
-) -> str:
-    """Format token balance with decimals and specified display precision."""
-    val = Decimal(str(amount)) / (Decimal("10") ** decimals)
-    quantizer = Decimal("10") ** -display_decimals
-    formatted = val.quantize(quantizer, rounding=ROUND_DOWN)
-    return f"{formatted:f}"
-
-
-def satoshi_to_btc(sats: int) -> Decimal:
-    """Convert Satoshis to Bitcoin."""
-    return Decimal(sats) / (Decimal("10") ** 8)
+def format_amount(amount: Any) -> float:
+    """Conversion with safe fallback for invalid inputs."""
+    try:
+        val = float(amount)
+        if val < 0:
+            raise ValueError("Negative balance detected")
+        return val
+    except (ValueError, TypeError):
+        logger.warning(f"Invalid amount input: {amount}")
+        return 0.0
