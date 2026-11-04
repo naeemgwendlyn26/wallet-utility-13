@@ -1,39 +1,49 @@
-import functools
-from typing import Callable, Any
-from collections import deque
+"""Cryptocurrency wallet utility functions for conversions and formatting."""
 
-# LRU cache configuration for crypto address validation
-CACHE_SIZE = 1024
+from typing import Union
 
-@functools.lru_cache(maxsize=CACHE_SIZE)
-def validate_checksum(address: str) -> bool:
-    """Validates wallet address checksum using cached results."""
-    if not address.startswith('0x') or len(address) != 42:
-        return False
-    return all(c in '0123456789abcdefABCDEF' for c in address[2:])
+WEI_PER_ETHER = 10**18
+SATS_PER_BTC = 10**8
 
-class BatchProcessor:
-    """Memory-efficient queue for processing crypto transactions."""
-    def __init__(self, capacity: int = 500):
-        self.queue = deque(maxlen=capacity)
 
-    def add_transaction(self, tx_data: dict) -> None:
-        self.queue.append(tx_data)
+def wei_to_ether(wei: int) -> float:
+    """Convert Wei (smallest Ethereum unit) to Ether."""
+    if not isinstance(wei, int) or wei < 0:
+        raise ValueError("Wei value must be a non-negative integer")
+    return wei / WEI_PER_ETHER
 
-    def get_batch(self) -> list:
-        batch = []
-        while self.queue:
-            batch.append(self.queue.popleft())
-        return batch
 
-def memoize_rate_limit(func: Callable) -> Callable:
-    """Decorator for rate-limiting expensive calculations."""
-    cache = {}
+def ether_to_wei(ether: Union[int, float]) -> int:
+    """Convert Ether to Wei."""
+    if not isinstance(ether, (int, float)) or ether < 0:
+        raise ValueError("Ether value must be a non-negative number")
+    return int(ether * WEI_PER_ETHER)
 
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        key = str(args) + str(kwargs)
-        if key not in cache:
-            cache[key] = func(*args, **kwargs)
-        return cache[key]
-    return wrapper
+
+def sats_to_btc(sats: int) -> float:
+    """Convert Satoshis to Bitcoin."""
+    if not isinstance(sats, int) or sats < 0:
+        raise ValueError("Satoshi value must be a non-negative integer")
+    return sats / SATS_PER_BTC
+
+
+def btc_to_sats(btc: Union[int, float]) -> int:
+    """Convert Bitcoin to Satoshis."""
+    if not isinstance(btc, (int, float)) or btc < 0:
+        raise ValueError("BTC value must be a non-negative number")
+    return int(btc * SATS_PER_BTC)
+
+
+def format_hex_prefix(hex_str: str) -> str:
+    """Ensure a hex string starts with '0x'."""
+    cleaned = hex_str.strip()
+    if not cleaned.startswith("0x") and not cleaned.startswith("0X"):
+        return f"0x{cleaned}"
+    return cleaned.lower()
+
+
+def truncate_address(address: str, leading: int = 6, trailing: int = 4) -> str:
+    """Truncate a wallet address for display purposes."""
+    if len(address) <= leading + trailing:
+        return address
+    return f"{address[:leading]}...{address[-trailing:]}"
