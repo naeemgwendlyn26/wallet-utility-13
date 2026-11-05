@@ -2,28 +2,29 @@ class WalletError(Exception):
     """Base exception for wallet-utility-13."""
     pass
 
-class InsufficientBalanceError(WalletError):
-    """Raised when transaction exceeds available funds."""
+class ConnectionError(WalletError):
+    """Raised when RPC or node connectivity fails."""
     pass
 
-class InvalidAddressError(WalletError):
-    """Raised when the provided wallet address format is invalid."""
+class ValidationError(WalletError):
+    """Raised when address or transaction data is invalid."""
     pass
 
-class NetworkTimeoutError(WalletError):
-    """Raised when blockchain RPC calls time out."""
+class InsufficientFundsError(WalletError):
+    """Raised when account balance is too low for operation."""
     pass
 
-class TransactionSigningError(WalletError):
-    """Raised when cryptographic signature creation fails."""
+class SecurityError(WalletError):
+    """Raised when signing or key operations fail."""
     pass
 
-class RateLimitExceededError(WalletError):
-    """Raised when API request frequency limits are hit."""
+class RateLimitError(WalletError):
+    """Raised when API requests exceed threshold."""
     pass
 
-def handle_exception(e: Exception) -> str:
-    """Format exception messages for consistent logging."""
+def handle_exception(e: Exception) -> None:
+    """Centralized error classification for logging."""
     if isinstance(e, WalletError):
-        return f"[WalletUtility] {type(e).__name__}: {str(e)}"
-    return f"[WalletUtility] UnexpectedError: {str(e)}"
+        print(f"Wallet operational error: {e}")
+    else:
+        print(f"Unexpected system failure: {e}")
