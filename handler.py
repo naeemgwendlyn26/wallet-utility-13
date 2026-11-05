@@ -1,39 +1,32 @@
-from typing import Dict, Any, Optional
 import logging
 
 logger = logging.getLogger(__name__)
 
-class TransactionHandler:
-    """Handles cryptographic transaction processing for wallet-utility-13."""
+class WalletError(Exception):
+    """Base exception for wallet operations."""
+    pass
 
-    def __init__(self, network: str = "mainnet") -> None:
-        self.network: str = network
+def execute_transaction(tx_func, *args, **kwargs):
+    """Wraps execution to catch common crypto failures."""
+    try:
+        return tx_func(*args, **kwargs)
+    except ConnectionError as e:
+        logger.error(f"Network connectivity failure: {e}")
+        raise WalletError("Unable to reach node provider") from e
+    except ValueError as e:
+        logger.error(f"Invalid transaction parameters: {e}")
+        raise WalletError("Malformed transaction data") from e
+    except Exception as e:
+        logger.critical(f"Unexpected system error: {e}")
+        raise WalletError("Internal wallet processing failure") from e
 
-    def process_transaction(self, tx_data: Dict[str, Any]) -> Optional[str]:
-        """
-        Validates and processes a transaction request.
-
-        Args:
-            tx_data: A dictionary containing sender, receiver, and amount.
-
-        Returns:
-            The transaction hash string if successful, else None.
-        """
-        if not self._validate_tx(tx_data):
-            logger.error("Transaction validation failed.")
-            return None
-
-        try:
-            tx_hash: str = f"0x{hash(str(tx_data))}"
-            logger.info(f"Transaction broadcasted: {tx_hash}")
-            return tx_hash
-        except Exception as e:
-            logger.exception(f"Broadcast error: {e}")
-            return None
-
-    def _validate_tx(self, tx_data: Dict[str, Any]) -> bool:
-        """
-        Ensures required fields exist in the transaction data.
-        """
-        required_fields = {"sender", "receiver", "amount"}
-        return all(field in tx_data for field in required_fields)
+def validate_address(address: str, chain: str) -> bool:
+    """Ensures address formatting matches chain requirements."""
+    if not address or not isinstance(address, str):
+        return False
+    
+    # Basic hex-string format check for EVM-compatible wallets
+    if chain == "evm":
+        return address.startswith("0x") and len(address) == 42
+    
+    return False
