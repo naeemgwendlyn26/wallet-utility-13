@@ -1,35 +1,30 @@
-import logging
-from typing import Dict, List, Optional
-
-logger = logging.getLogger(__name__)
+from typing import List, Dict, Optional
 
 class TransactionProcessor:
-    """Handles batch processing of cryptocurrency transactions."""
+    """Handles crypto transaction validation and serialization."""
 
-    def __init__(self, network_fee: float = 0.0001):
-        self.network_fee = network_fee
-        self.processed_count = 0
+    def __init__(self, network_fee: float = 0.001) -> None:
+        self.network_fee: float = network_fee
 
-    def validate_batch(self, tx_list: List[Dict]) -> bool:
-        """Ensures all transactions in a list are structurally valid."""
-        return all('address' in tx and 'amount' in tx for tx in tx_list)
+    def calculate_total(self, amount: float) -> float:
+        """Calculates total with network fee."""
+        return amount + self.network_fee
 
-    def execute_batch(self, tx_list: List[Dict]) -> Optional[str]:
-        """Executes a batch of validated transactions."""
-        if not self.validate_batch(tx_list):
-            logger.error("Batch validation failed")
-            return None
+    def format_batch(self, transactions: List[Dict[str, float]]) -> List[Dict[str, float]]:
+        """Applies fees to a list of transactions."""
+        processed: List[Dict[str, float]] = []
+        for tx in transactions:
+            tx['total'] = self.calculate_total(tx.get('amount', 0.0))
+            processed.append(tx)
+        return processed
 
-        try:
-            for tx in tx_list:
-                amount = tx['amount'] - self.network_fee
-                logger.info(f"Processing {amount} to {tx['address']}")
-                self.processed_count += 1
-            return "success"
-        except Exception as e:
-            logger.error(f"Execution error: {str(e)}")
-            return None
+    def validate_address(self, address: str) -> bool:
+        """Checks format of crypto wallet address."""
+        return len(address) == 42 and address.startswith('0x')
 
-    def get_status(self) -> Dict[str, int]:
-        """Returns metrics on current processing session."""
-        return {"processed": self.processed_count, "fee": self.network_fee}
+    def get_summary(self, tx_id: str, status: Optional[str] = None) -> Dict[str, str]:
+        """Retrieves transaction status report."""
+        return {
+            "id": tx_id,
+            "status": status or "pending"
+        }
