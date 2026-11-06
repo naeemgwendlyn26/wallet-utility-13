@@ -1,50 +1,61 @@
-import os
-import sys
 import logging
-from logging.handlers import RotatingFileHandler
-from typing import Optional
-
-DEFAULT_LOG_FORMAT = "%(asctime)s - %(name)s - [%(levelname)s] - %(message)s"
-DEFAULT_LOG_FILE = "logs/wallet_utility.log"
+import re
+import sys
+from typing import Any, Optional
 
 
-def setup_logger(
-    name: str = "wallet_utility",
-    log_file: Optional[str] = DEFAULT_LOG_FILE,
-    level: int = logging.INFO,
-    max_bytes: int = 5 * 1024 * 1024,
-    backup_count: int = 5
-) -> logging.Logger:
-    """Configures and returns a logger instance with console and rotating file handlers."""
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
+class CryptoSanitizingFormatter(logging.Formatter):
+    """Formatter that redacts sensitive crypto keys and credentials from log output."""
 
-    # Prevent duplicate handlers if re-initialized
-    if logger.handlers:
-        return logger
+    PATTERNS = [
+        (r"\b(0x)?[a-fA-F0-9]{64}\b", "[REDACTED_PRIVATE_KEY]"),
+        (r"\b[5KL][1-9A-HJ-NP-Za-k8-9]{50,51}\b", "[REDACTED_WIF_KEY]"),
+        (r"(?i)(api[_-]?key|secret|password)\s*[:=]\s*['"]?([^'"\s]+)", r"\1=[REDACTED]"),
+    ]
 
-    formatter = logging.Formatter(DEFAULT_LOG_FORMAT)
+    def format(self, record: logging.LogRecord) -> str:
+        original_msg = super().format(record)
+        sanitized = original_msg
 
-    # Console handler outputting to standard output
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(level)
-    logger.addHandler(console_handler)
+        try:
+            for pattern, replacement in self.PATTERNS:
+                sanitized = re.sub(pattern, replacement, sanitized)
+        except Exception as err:
+            return f"[LOG REDACTION ERROR: {err}] {record.levelname}: fallback"
 
-    # Rotating file handler for crypto operation audits
-    if log_file:
-        log_dir = os.path.dirname(log_file)
-        if log_dir:
-            os.makedirs(log_dir, exist_ok=True)
+        return sanitized
 
-        file_handler = RotatingFileHandler(
-            log_file,
-            maxBytes=max_bytes,
-            backupCount=backup_count,
-            encoding="utf-8"
+
+class RobustWalletLogger:
+    """Configures safe logging with fallback handling for I/O and formatting errors."""
+
+    def __init__(self, name: str = "wallet", log_file: Optional[str] = None):
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.INFO)
+        self._setup_handlers(log_file)
+
+    def _setup_handlers(self, log_file: Optional[str]) -> None:
+        formatter = CryptoSanitizingFormatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
-        file_handler.setFormatter(formatter)
-        file_handler.setLevel(level)
-        logger.addHandler(file_handler)
 
-    return logger
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
+        self.logger.addHandler(console_handler)
+
+        if log_file:
+            try:
+                file_handler = logging.FileHandler(log_file, encoding="utf-8")
+                file_handler.setFormatter(formatter)
+                self.logger.addHandler(file_handler)
+            except (OSError, PermissionError) as err:
+                self.logger.warning(
+                    f"Failed to setup file logging for '{log_file}': {err}"
+                )
+
+    def log_safe(self, level: int, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Logs message safely, preventing app crashes if formatting fails."""
+        try:
+            self.logger.log(level, msg, *args, **kwargs)
+        except Exception as err:
+            sys.stderr.write(f"CRITICAL LOGGING ERROR: {err} | Original: {msg}\n")
