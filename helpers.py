@@ -1,33 +1,62 @@
 import re
-from typing import Optional
-
-SATOSHI_PER_BTC = 100_000_000
+from typing import Optional, Union
 
 
-def satoshi_to_btc(sats: int) -> float:
-    """Convert integer satoshis to Bitcoin float value."""
-    if sats < 0:
+def truncate_address(address: str, leading: int = 6, trailing: int = 4) -> str:
+    """Safely truncate a crypto address for UI display with edge-case handling."""
+    if not isinstance(address, str):
+        raise TypeError("Address must be a string")
+    
+    cleaned = address.strip()
+    if not cleaned:
+        return ""
+    
+    min_length = leading + trailing + 3
+    if len(cleaned) <= min_length:
+        return cleaned
+    
+    return f"{cleaned[:leading]}...{cleaned[-trailing:]}"
+
+
+def satoshis_to_btc(satoshis: Union[int, float, str, None]) -> float:
+    """Convert Satoshis to BTC value, handling invalid types and bounds edge cases."""
+    if satoshis is None:
+        return 0.0
+    
+    try:
+        val = float(satoshis)
+    except (ValueError, TypeError):
+        raise ValueError(f"Invalid satoshi value format: {satoshis}")
+    
+    if val < 0:
         raise ValueError("Satoshi amount cannot be negative")
-    return sats / SATOSHI_PER_BTC
+    
+    # Max supply guard: 21 million BTC in satoshis
+    if val > 2.1e15:
+        raise ValueError("Amount exceeds theoretical maximum Bitcoin supply")
+    
+    return round(val / 1e8, 8)
 
 
-def btc_to_satoshi(btc: float) -> int:
-    """Convert Bitcoin float value to integer satoshis."""
-    if btc < 0:
-        raise ValueError("BTC amount cannot be negative")
-    return round(btc * SATOSHI_PER_BTC)
+def parse_hex_balance(hex_str: Union[str, int]) -> int:
+    """Parse RPC hex balance string into wei integer with safety checks."""
+    if isinstance(hex_str, int):
+        return hex_str if hex_str >= 0 else 0
 
+    if not isinstance(hex_str, str):
+        raise TypeError("Hex balance must be a string or integer")
 
-def format_address_short(address: str, leading: int = 6, trailing: int = 4) -> str:
-    """Shorten a public wallet address for visual display."""
-    if not address or len(address) <= (leading + trailing):
-        return address
-    return f"{address[:leading]}...{address[-trailing:]}"
+    cleaned = hex_str.strip().lower()
+    if not cleaned:
+        return 0
 
+    if cleaned.startswith("0x"):
+        cleaned = cleaned[2:]
 
-def is_valid_hex_string(val: str, length: Optional[int] = None) -> bool:
-    """Check if string is valid hex with optional exact length check."""
-    clean_val = val[2:] if val.startswith("0x") else val
-    if length and len(clean_val) != length:
-        return False
-    return bool(re.fullmatch(r"[0-9a-fA-F]+", clean_val))
+    if not cleaned:
+        return 0
+
+    if not re.fullmatch(r"[0-9a-f]+", cleaned):
+        raise ValueError(f"Invalid hexadecimal characters in balance: '{hex_str}'")
+
+    return int(cleaned, 16)
