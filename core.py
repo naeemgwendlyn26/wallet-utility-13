@@ -1,45 +1,56 @@
 import hashlib
-from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 
-class WalletCore:
-    """Core cryptographic and wallet processing engine with cached operations."""
+@lru_cache(maxsize=4096)
+def sha256_double(data_bytes: bytes) -> bytes:
+    """Compute double SHA-256 hash with caching for repeated inputs."""
+    return hashlib.sha256(hashlib.sha256(data_bytes).digest()).digest()
 
-    def __init__(self, max_workers: int = 4):
-        self.executor = ThreadPoolExecutor(max_workers=max_workers)
 
-    @staticmethod
-    @lru_cache(maxsize=1024)
-    def derive_address_fast(public_key_hex: str, network_prefix: bytes = b"\x00") -> str:
-        """Derives a crypto address from a public key with LRU caching for performance."""
-        pub_bytes = bytes.fromhex(public_key_hex)
-        sha = hashlib.sha256(pub_bytes).digest()
-        ripemd = hashlib.new("ripemd160", sha).digest()
+@lru_cache(maxsize=2048)
+def derive_address_checksum(address_raw: str) -> str:
+    """Fast EIP-55 style checksum address calculation with memoization."""
+    address_clean = address_raw.lower().replace("0x", "")
+    hash_hex = hashlib.sha256(address_clean.encode("utf-8")).hexdigest()
 
-        payload = network_prefix + ripemd
-        checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
-        return (payload + checksum).hex()
+    checksummed = []
+    for i, char in enumerate(address_clean):
+        if char.isdigit():
+            checksummed.append(char)
+        elif int(hash_hex[i], 16) >= 8:
+            checksummed.append(char.upper())
+        else:
+            checksummed.append(char.lower())
+    return "0x" + "".join(checksummed)
 
-    def batch_derive_addresses(
-        self, public_keys: List[str], network_prefix: bytes = b"\x00"
-    ) -> Dict[str, str]:
-        """Concurrently derives addresses for a batch of public keys."""
-        futures = {
-            pk: self.executor.submit(self.derive_address_fast, pk, network_prefix)
-            for pk in public_keys
-        }
-        return {pk: future.result() for pk, future in futures.items()}
 
-    def batch_validate_nonces(self, account_nonces: List[Tuple[str, int, int]]) -> List[bool]:
-        """Validates expected vs network nonces in parallel to reduce turnaround latency."""
-        def check_nonce(data: Tuple[str, int, int]) -> bool:
-            _, expected, current = data
-            return current >= expected
+class TransactionBatchProcessor:
+    """High-performance batch processing engine for crypto transaction payload validation."""
 
-        return list(self.executor.map(check_nonce, account_nonces))
+    def __init__(self, cache_size: int = 1000):
+        self._cache_size = cache_size
+        self._precomputed_hashes: Dict[str, bytes] = {}
 
-    def shutdown(self) -> None:
-        """Cleans up internal thread executor resources."""
-        self.executor.shutdown(wait=True)
+    def batch_hash_transactions(self, raw_tx_list: List[bytes]) -> List[bytes]:
+        """Process a list of raw transaction bytes, leveraging cached double-SHA256 results."""
+        results = []
+        for raw_tx in raw_tx_list:
+            tx_hash = sha256_double(raw_tx)
+            results.append(tx_hash)
+        return results
+
+    def validate_and_format_addresses(self, addresses: List[str]) -> List[str]:
+        """Validate and apply checksum formatting across a batch of wallet addresses."""
+        formatted = []
+        for addr in addresses:
+            if not addr or len(addr) < 40:
+                continue
+            formatted.append(derive_address_checksum(addr))
+        return formatted
+
+    def clear_caches(self) -> None:
+        """Purge precomputation caches to free memory."""
+        sha256_double.cache_clear()
+        derive_address_checksum.cache_clear()
