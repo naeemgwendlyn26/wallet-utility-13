@@ -1,62 +1,31 @@
-import re
-from typing import Optional, Union
+import time
+import functools
+import logging
+from typing import Callable, Any
 
+logger = logging.getLogger(__name__)
 
-def truncate_address(address: str, leading: int = 6, trailing: int = 4) -> str:
-    """Safely truncate a crypto address for UI display with edge-case handling."""
-    if not isinstance(address, str):
-        raise TypeError("Address must be a string")
-    
-    cleaned = address.strip()
-    if not cleaned:
-        return ""
-    
-    min_length = leading + trailing + 3
-    if len(cleaned) <= min_length:
-        return cleaned
-    
-    return f"{cleaned[:leading]}...{cleaned[-trailing:]}"
-
-
-def satoshis_to_btc(satoshis: Union[int, float, str, None]) -> float:
-    """Convert Satoshis to BTC value, handling invalid types and bounds edge cases."""
-    if satoshis is None:
-        return 0.0
-    
-    try:
-        val = float(satoshis)
-    except (ValueError, TypeError):
-        raise ValueError(f"Invalid satoshi value format: {satoshis}")
-    
-    if val < 0:
-        raise ValueError("Satoshi amount cannot be negative")
-    
-    # Max supply guard: 21 million BTC in satoshis
-    if val > 2.1e15:
-        raise ValueError("Amount exceeds theoretical maximum Bitcoin supply")
-    
-    return round(val / 1e8, 8)
-
-
-def parse_hex_balance(hex_str: Union[str, int]) -> int:
-    """Parse RPC hex balance string into wei integer with safety checks."""
-    if isinstance(hex_str, int):
-        return hex_str if hex_str >= 0 else 0
-
-    if not isinstance(hex_str, str):
-        raise TypeError("Hex balance must be a string or integer")
-
-    cleaned = hex_str.strip().lower()
-    if not cleaned:
-        return 0
-
-    if cleaned.startswith("0x"):
-        cleaned = cleaned[2:]
-
-    if not cleaned:
-        return 0
-
-    if not re.fullmatch(r"[0-9a-f]+", cleaned):
-        raise ValueError(f"Invalid hexadecimal characters in balance: '{hex_str}'")
-
-    return int(cleaned, 16)
+def retry_network_op(max_retries: int = 3, delay: float = 1.0):
+    """
+    Decorator to retry network-dependent functions with exponential backoff.
+    Useful for unstable crypto RPC endpoints.
+    """
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            last_exception = None
+            current_delay = delay
+            
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    last_exception = e
+                    logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {current_delay}s...")
+                    time.sleep(current_delay)
+                    current_delay *= 2
+            
+            logger.error(f"Function {func.__name__} failed after {max_retries} attempts.")
+            raise last_exception
+        return wrapper
+    return decorator
