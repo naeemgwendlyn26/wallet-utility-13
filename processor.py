@@ -1,33 +1,32 @@
-import json
-from typing import Dict, Any, Optional
+import time
+import functools
+import logging
 
-def format_transaction_data(raw_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Normalizes raw crypto transaction data into a standardized dictionary format.
-    Ensures fields are cast to appropriate types for wallet accounting.
-    """
-    try:
-        return {
-            "tx_hash": str(raw_data.get("hash", "")), 
-            "amount": float(raw_data.get("value", 0)) / 1e18,  # Convert Wei to ETH
-            "sender": str(raw_data.get("from", "")).lower(),
-            "recipient": str(raw_data.get("to", "")).lower(),
-            "gas_used": int(raw_data.get("gas", 0)),
-            "is_confirmed": bool(raw_data.get("status", False))
-        }
-    except (ValueError, TypeError) as e:
-        return {"error": "data parsing failure", "details": str(e)}
+logger = logging.getLogger(__name__)
 
-def calculate_net_balance(transactions: list) -> float:
-    """
-    Computes cumulative balance change from a list of transaction objects.
-    """
-    balance = 0.0
-    for tx in transactions:
-        # Simple logic: assume incoming is positive, outgoing is negative
-        amount = tx.get("amount", 0)
-        if tx.get("direction") == "inbound":
-            balance += amount
-        else:
-            balance -= amount
-    return balance
+def retry_network_op(retries=3, delay=2, exceptions=(ConnectionError, TimeoutError)):
+    """Decorator for retrying network operations with exponential backoff."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            current_delay = delay
+            for attempt in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {current_delay}s...")
+                    time.sleep(current_delay)
+                    current_delay *= 2
+            logger.error(f"Operation failed after {retries} attempts.")
+            raise last_exception
+        return wrapper
+    return decorator
+
+@retry_network_op(retries=3)
+def fetch_balance(address: str):
+    """Example network operation for crypto wallet balances."""
+    # Placeholder for actual network logic
+    logger.info(f"Fetching balance for {address}")
+    return 0.0
