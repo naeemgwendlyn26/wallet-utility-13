@@ -1,49 +1,48 @@
 # wallet-utility-13
 
-A high-performance Python toolkit designed for seamless cryptocurrency wallet management and cryptographic operations. This utility provides a streamlined interface for key derivation, transaction signing, and balance monitoring across multiple EVM-compatible networks.
+A high-performance Python toolkit designed for streamlined cryptocurrency wallet management and derivation. This utility simplifies the process of generating, securing, and tracking multi-chain addresses for developers and power users.
 
 ## Features
 
-*   **BIP-39 Implementation:** Generate secure, industry-standard mnemonic phrases and hierarchical deterministic (HD) wallets with customizable derivation paths.
-*   **Multi-Chain Support:** Native integration for signing transactions and querying RPC nodes across Ethereum, BSC, Polygon, and Arbitrum.
-*   **Encrypted Storage:** Built-in AES-256 local keystore utility to protect sensitive private keys and sensitive configuration data at rest.
-*   **Balance Aggregator:** Lightweight asynchronous fetching of token balances using `aiohttp` for rapid, concurrent portfolio snapshots.
+*   **BIP-39 Implementation:** Securely generate and recover 12-to-24 word mnemonic phrases with full entropy validation.
+*   **Multi-Chain Support:** Native derivation support for Bitcoin (BTC), Ethereum (ETH), and Solana (SOL) key pairs.
+*   **Encrypted Storage:** Built-in AES-256 encryption module to protect local keystore files from unauthorized access.
+*   **Balance Monitoring:** Lightweight integration with public blockchain explorers to fetch real-time address balances via API.
 
 ## Installation
 
-Ensure you have Python 3.10+ installed. Clone the repository and install the required dependencies via `pip`:
+Ensure you have Python 3.9+ installed. Clone the repository and set up your virtual environment:
 
 ```bash
 git clone https://github.com/Developer/wallet-utility-13.git
 cd wallet-utility-13
-python3 -m venv venv
-source venv/bin/activate
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Usage
+## Basic Usage
 
-This snippet demonstrates how to generate a new wallet and derive the corresponding public address:
+Generate a new Ethereum wallet and export the private key securely:
 
 ```python
 from wallet_utility import WalletManager
 
-# Initialize manager
-manager = WalletManager()
+# Initialize the manager
+manager = WalletManager(chain="ETH")
 
-# Create new HD wallet
-mnemonic, address = manager.create_new_wallet()
+# Create a new wallet
+wallet = manager.generate_wallet()
 
-print(f"Address: {address}")
-print(f"Mnemonic: {mnemonic}")
+# Save with password-based encryption
+manager.save_to_disk(wallet, password="super-secret-password")
 
-# Sign a transaction
-tx_hash = manager.sign_transaction(private_key, to_address, amount=0.01)
-print(f"Transaction broadcasted: {tx_hash}")
+print(f"Address: {wallet.address}")
+print(f"Private Key exported to keystore.")
 ```
 
 ## License
 
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Distributed under the MIT License. See `LICENSE` for more information.
+*Distributed under the MIT License. See `LICENSE` for more information.*
