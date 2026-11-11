@@ -1,44 +1,38 @@
-import functools
-import logging
-import random
-import time
-from typing import Any, Callable, Tuple, Type
+import re
+from decimal import Decimal, ROUND_DOWN
 
-logger = logging.getLogger("wallet_utility.helpers")
+SATOSHI_PER_BTC = Decimal("100000000")
+WEI_PER_ETH = Decimal("1000000000000000000")
 
 
-def retry_network_call(
-    max_retries: int = 3,
-    initial_delay: float = 1.0,
-    backoff_factor: float = 2.0,
-    exceptions: Tuple[Type[BaseException], ...] = (Exception,),
-) -> Callable:
-    """Decorator that retries network operations using exponential backoff with jitter."""
+def satoshi_to_btc(satoshi: int) -> Decimal:
+    """Convert Satoshi integer amount to Bitcoin Decimal."""
+    if not isinstance(satoshi, int) or satoshi < 0:
+        raise ValueError("Satoshi amount must be a non-negative integer")
+    return (Decimal(satoshi) / SATOSHI_PER_BTC).quantize(
+        Decimal("0.00000001"), rounding=ROUND_DOWN
+    )
 
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            delay = initial_delay
-            for attempt in range(1, max_retries + 1):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as exc:
-                    if attempt == max_retries:
-                        logger.error(
-                            f"Network call '{func.__name__}' failed after {max_retries} attempts: {exc}"
-                        )
-                        raise
 
-                    # Exponential backoff with a small jitter factor
-                    jitter = random.uniform(0.8, 1.2)
-                    sleep_time = delay * jitter
-                    logger.warning(
-                        f"Attempt {attempt}/{max_retries} for '{func.__name__}' failed ({exc}). "
-                        f"Retrying in {sleep_time:.2f}s..."
-                    )
-                    time.sleep(sleep_time)
-                    delay *= backoff_factor
+def btc_to_satoshi(btc_amount: str | float | Decimal) -> int:
+    """Convert Bitcoin amount to Satoshi integer."""
+    decimal_amount = Decimal(str(btc_amount))
+    if decimal_amount < 0:
+        raise ValueError("Bitcoin amount cannot be negative")
+    return int(decimal_amount * SATOSHI_PER_BTC)
 
-        return wrapper
 
-    return decorator
+def wei_to_eth(wei: int) -> Decimal:
+    """Convert Wei integer amount to Ether Decimal."""
+    if not isinstance(wei, int) or wei < 0:
+        raise ValueError("Wei amount must be a non-negative integer")
+    return (Decimal(wei) / WEI_PER_ETH).quantize(
+        Decimal("0.000000000000000001"), rounding=ROUND_DOWN
+    )
+
+
+def truncate_address(address: str, leading_chars: int = 6, trailing_chars: int = 4) -> str:
+    """Format public crypto address for user display."""
+    if not address or len(address) <= (leading_chars + trailing_chars):
+        return address
+    return f"{address[:leading_chars]}...{address[-trailing_chars:]}"
