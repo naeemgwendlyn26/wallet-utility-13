@@ -1,32 +1,37 @@
-import time
-import functools
-import logging
+import re
 
-logger = logging.getLogger(__name__)
+def validate_address(address: str) -> bool:
+    """Validates Ethereum-like address format."""
+    return bool(re.match(r'^0x[a-fA-F0-9]{40}$', address))
 
-def retry_network_op(retries=3, delay=2, exceptions=(ConnectionError, TimeoutError)):
-    """Decorator for retrying network operations with exponential backoff."""
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            last_exception = None
-            current_delay = delay
-            for attempt in range(retries):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    last_exception = e
-                    logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {current_delay}s...")
-                    time.sleep(current_delay)
-                    current_delay *= 2
-            logger.error(f"Operation failed after {retries} attempts.")
-            raise last_exception
-        return wrapper
-    return decorator
+def validate_amount(amount: float) -> bool:
+    """Ensures transaction amount is positive and within limits."""
+    return isinstance(amount, (int, float)) and 0 < amount < 1000000
 
-@retry_network_op(retries=3)
-def fetch_balance(address: str):
-    """Example network operation for crypto wallet balances."""
-    # Placeholder for actual network logic
-    logger.info(f"Fetching balance for {address}")
-    return 0.0
+def process_transactions(transactions: list):
+    """Main processing loop with integrated input validation."""
+    results = []
+    for tx in transactions:
+        address = tx.get('to')
+        amount = tx.get('value')
+
+        if not validate_address(address):
+            print(f"Invalid address format: {address}")
+            continue
+
+        if not validate_amount(amount):
+            print(f"Invalid amount: {amount}")
+            continue
+
+        # Process validated transaction
+        results.append({"status": "success", "tx": tx.get('id')})
+    
+    return results
+
+if __name__ == '__main__':
+    mock_data = [
+        {'id': 1, 'to': '0x742d35Cc6634C0532925a3b844Bc454e4438f44e', 'value': 0.5},
+        {'id': 2, 'to': 'invalid_addr', 'value': 10}
+    ]
+    processed = process_transactions(mock_data)
+    print(f"Processed {len(processed)} transactions.")
