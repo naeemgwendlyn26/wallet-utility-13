@@ -1,33 +1,36 @@
 import re
 
-class WalletValidationError(Exception):
-    """Custom exception for wallet validation issues."""
-    pass
+# Crypto address validation patterns
+ADDRESS_PATTERNS = {
+    'BTC': r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$',
+    'ETH': r'^0x[a-fA-F0-9]{40}$'
+}
 
-def validate_address(address: str, chain_type: str = 'evm') -> bool:
-    """Validates blockchain address format based on chain type."""
-    if not isinstance(address, str) or not address:
-        raise WalletValidationError("Address must be a non-empty string")
+def validate_wallet_address(address: str, chain: str) -> bool:
+    """Validates address format based on blockchain type."""
+    pattern = ADDRESS_PATTERNS.get(chain.upper())
+    if not pattern:
+        return False
+    return bool(re.match(pattern, address))
 
-    patterns = {
-        'evm': r'^0x[a-fA-F0-9]{40}$',
-        'btc': r'^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,59}$'
-    }
-
-    if chain_type not in patterns:
-        raise ValueError(f"Unsupported chain type: {chain_type}")
-
-    if not re.match(patterns[chain_type], address):
-        raise WalletValidationError(f"Invalid {chain_type} address format")
-
-    return True
-
-def validate_amount(amount: float) -> bool:
-    """Ensures transaction amount is positive and finite."""
+def validate_amount(amount: str) -> bool:
+    """Checks if the amount is a positive numeric string."""
     try:
         val = float(amount)
-        if val <= 0:
-            raise WalletValidationError("Amount must be greater than zero")
-        return True
+        return val > 0
     except (ValueError, TypeError):
-        raise WalletValidationError("Amount must be a numeric value")
+        return False
+
+def validate_payload(data: dict) -> bool:
+    """Ensures dictionary contains valid transaction keys."""
+    required = ['address', 'amount', 'chain']
+    if not all(key in data for key in required):
+        return False
+    
+    if not validate_wallet_address(data['address'], data['chain']):
+        return False
+        
+    if not validate_amount(str(data['amount'])):
+        return False
+        
+    return True
