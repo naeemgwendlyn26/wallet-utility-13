@@ -1,38 +1,33 @@
-import re
-from decimal import Decimal, ROUND_DOWN
+import functools
+import time
+from typing import Any, Callable
 
-SATOSHI_PER_BTC = Decimal("100000000")
-WEI_PER_ETH = Decimal("1000000000000000000")
+# Cache dictionary to store function call results
+_CACHE = {}
 
+def memoize(func: Callable) -> Callable:
+    """Performance decorator for expensive cryptographic calculations."""
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        key = (func.__name__, args, frozenset(kwargs.items()))
+        if key not in _CACHE:
+            _CACHE[key] = func(*args, **kwargs)
+        return _CACHE[key]
+    return wrapper
 
-def satoshi_to_btc(satoshi: int) -> Decimal:
-    """Convert Satoshi integer amount to Bitcoin Decimal."""
-    if not isinstance(satoshi, int) or satoshi < 0:
-        raise ValueError("Satoshi amount must be a non-negative integer")
-    return (Decimal(satoshi) / SATOSHI_PER_BTC).quantize(
-        Decimal("0.00000001"), rounding=ROUND_DOWN
-    )
+def batch_process(items: list, chunk_size: int = 100):
+    """Memory-efficient generator for large wallet address datasets."""
+    for i in range(0, len(items), chunk_size):
+        yield items[i:i + chunk_size]
 
-
-def btc_to_satoshi(btc_amount: str | float | Decimal) -> int:
-    """Convert Bitcoin amount to Satoshi integer."""
-    decimal_amount = Decimal(str(btc_amount))
-    if decimal_amount < 0:
-        raise ValueError("Bitcoin amount cannot be negative")
-    return int(decimal_amount * SATOSHI_PER_BTC)
-
-
-def wei_to_eth(wei: int) -> Decimal:
-    """Convert Wei integer amount to Ether Decimal."""
-    if not isinstance(wei, int) or wei < 0:
-        raise ValueError("Wei amount must be a non-negative integer")
-    return (Decimal(wei) / WEI_PER_ETH).quantize(
-        Decimal("0.000000000000000001"), rounding=ROUND_DOWN
-    )
-
-
-def truncate_address(address: str, leading_chars: int = 6, trailing_chars: int = 4) -> str:
-    """Format public crypto address for user display."""
-    if not address or len(address) <= (leading_chars + trailing_chars):
-        return address
-    return f"{address[:leading_chars]}...{address[-trailing_chars:]}"
+def timed_execution(func: Callable) -> Callable:
+    """Profiler wrapper for monitoring core module latency."""
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        duration = time.perf_counter() - start
+        if duration > 0.5:
+            print(f"Warning: {func.__name__} took {duration:.4f}s")
+        return result
+    return wrapper
