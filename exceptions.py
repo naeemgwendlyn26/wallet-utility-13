@@ -2,29 +2,23 @@ class WalletError(Exception):
     """Base exception for wallet-utility-13."""
     pass
 
-class ConnectionError(WalletError):
-    """Raised when RPC or node connectivity fails."""
+class InsufficientBalanceError(WalletError):
+    """Raised when transaction amount exceeds balance."""
+    def __init__(self, required, available):
+        super().__init__(f"Required {required}, but only {available} available.")
+        self.required = required
+        self.available = available
+
+class NetworkConnectionError(WalletError):
+    """Raised when unable to reach crypto node."""
     pass
 
 class ValidationError(WalletError):
-    """Raised when address or transaction data is invalid."""
-    pass
-
-class InsufficientFundsError(WalletError):
-    """Raised when account balance is too low for operation."""
-    pass
-
-class SecurityError(WalletError):
-    """Raised when signing or key operations fail."""
+    """Raised for malformed addresses or keys."""
     pass
 
 class RateLimitError(WalletError):
     """Raised when API requests exceed threshold."""
-    pass
-
-def handle_exception(e: Exception) -> None:
-    """Centralized error classification for logging."""
-    if isinstance(e, WalletError):
-        print(f"Wallet operational error: {e}")
-    else:
-        print(f"Unexpected system failure: {e}")
+    def __init__(self, retry_after=60):
+        super().__init__(f"Rate limit exceeded. Retry after {retry_after}s.")
+        self.retry_after = retry_after
