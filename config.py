@@ -1,29 +1,31 @@
 import os
-import json
-from typing import Any, Dict
+from typing import Dict, Any
+from dotenv import load_dotenv
 
-DEFAULT_CONFIG = {
-    "network": "mainnet",
-    "rpc_url": "https://eth.llamarpc.com",
-    "timeout": 30,
-    "retry_attempts": 3
-}
+# Load environment variables for wallet security
+load_dotenv()
 
-def load_config(config_path: str = "config.json") -> Dict[str, Any]:
-    """Loads configuration from file with fallback to defaults."""
-    config = DEFAULT_CONFIG.copy()
+class Config:
+    """Centralized configuration management for wallet-utility-13."""
     
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, "r") as f:
-                file_data = json.load(f)
-                config.update(file_data)
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"Warning: Failed to load config file: {e}. Using defaults.")
-            
-    return config
+    NETWORK_ENV = os.getenv('NETWORK_ENV', 'mainnet')
+    TIMEOUT = int(os.getenv('REQUEST_TIMEOUT', 30))
+    RETRY_ATTEMPTS = 3
+    
+    @staticmethod
+    def get_rpc_url() -> str:
+        """Return the node provider URL based on environment."""
+        return os.getenv(f'RPC_URL_{Config.NETWORK_ENV.upper()}', 'https://eth.llamarpc.com')
 
-def get_config_value(key: str, default: Any = None) -> Any:
-    """Helper to fetch specific configuration values."""
-    config = load_config()
-    return config.get(key, default)
+    @classmethod
+    def to_dict(cls) -> Dict[str, Any]:
+        """Export configuration as a dictionary for logging purposes."""
+        return {
+            'network': cls.NETWORK_ENV,
+            'timeout': cls.TIMEOUT,
+            'retries': cls.RETRY_ATTEMPTS,
+            'rpc': cls.get_rpc_url()
+        }
+
+# Instantiate shared settings
+settings = Config()
