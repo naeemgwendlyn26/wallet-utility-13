@@ -1,31 +1,36 @@
 import os
-from typing import Dict, Any
-from dotenv import load_dotenv
+from typing import Any, Dict
 
-# Load environment variables for wallet security
-load_dotenv()
+DEFAULT_CONFIG = {
+    "rpc_url": "https://mainnet.infura.io/v3/",
+    "chain_id": 1,
+    "timeout": 30,
+    "gas_buffer": 0.1
+}
 
-class Config:
-    """Centralized configuration management for wallet-utility-13."""
+def load_config() -> Dict[str, Any]:
+    """Loads configuration from env or falls back to defaults."""
+    config = DEFAULT_CONFIG.copy()
     
-    NETWORK_ENV = os.getenv('NETWORK_ENV', 'mainnet')
-    TIMEOUT = int(os.getenv('REQUEST_TIMEOUT', 30))
-    RETRY_ATTEMPTS = 3
+    # Mapping of environment variables to config keys
+    env_mapping = {
+        "RPC_URL": "rpc_url",
+        "CHAIN_ID": "chain_id",
+        "TIMEOUT": "timeout",
+        "GAS_BUFFER": "gas_buffer"
+    }
+
+    for env_var, key in env_mapping.items():
+        value = os.getenv(env_var)
+        if value:
+            try:
+                # Type inference based on default values
+                expected_type = type(config[key])
+                config[key] = expected_type(value)
+            except (ValueError, TypeError):
+                continue
     
-    @staticmethod
-    def get_rpc_url() -> str:
-        """Return the node provider URL based on environment."""
-        return os.getenv(f'RPC_URL_{Config.NETWORK_ENV.upper()}', 'https://eth.llamarpc.com')
+    return config
 
-    @classmethod
-    def to_dict(cls) -> Dict[str, Any]:
-        """Export configuration as a dictionary for logging purposes."""
-        return {
-            'network': cls.NETWORK_ENV,
-            'timeout': cls.TIMEOUT,
-            'retries': cls.RETRY_ATTEMPTS,
-            'rpc': cls.get_rpc_url()
-        }
-
-# Instantiate shared settings
-settings = Config()
+# Instantiate active configuration
+settings = load_config()
