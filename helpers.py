@@ -1,33 +1,40 @@
 import functools
+from typing import Callable, Any, Dict
 import time
-from typing import Any, Callable
 
-# Cache dictionary to store function call results
-_CACHE = {}
+# Cache for address validation results to reduce repetitive regex/checksum cycles
+_validation_cache: Dict[str, bool] = {}
 
-def memoize(func: Callable) -> Callable:
-    """Performance decorator for expensive cryptographic calculations."""
+CACHE_SIZE_LIMIT = 1000
+
+def memoize_validation(func: Callable) -> Callable:
+    """Decorator to cache crypto address validation results."""
     @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        key = (func.__name__, args, frozenset(kwargs.items()))
-        if key not in _CACHE:
-            _CACHE[key] = func(*args, **kwargs)
-        return _CACHE[key]
-    return wrapper
-
-def batch_process(items: list, chunk_size: int = 100):
-    """Memory-efficient generator for large wallet address datasets."""
-    for i in range(0, len(items), chunk_size):
-        yield items[i:i + chunk_size]
-
-def timed_execution(func: Callable) -> Callable:
-    """Profiler wrapper for monitoring core module latency."""
-    @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        start = time.perf_counter()
-        result = func(*args, **kwargs)
-        duration = time.perf_counter() - start
-        if duration > 0.5:
-            print(f"Warning: {func.__name__} took {duration:.4f}s")
+    def wrapper(address: str, *args, **kwargs) -> bool:
+        if address in _validation_cache:
+            return _validation_cache[address]
+        
+        if len(_validation_cache) >= CACHE_SIZE_LIMIT:
+            _validation_cache.clear()
+            
+        result = func(address, *args, **kwargs)
+        _validation_cache[address] = result
         return result
     return wrapper
+
+@memoize_validation
+def validate_address_format(address: str, network: str = 'eth') -> bool:
+    """Simulates expensive checksum validation logic."""
+    # Placeholder for actual crypto regex/checksum logic
+    if not address or len(address) < 20:
+        return False
+    return True
+
+def batch_process_addresses(addresses: list, func: Callable) -> list:
+    """Optimized batch processor using list comprehensions."""
+    return [func(addr) for addr in addresses]
+
+# Utility for timestamping high-frequency transaction logs
+def get_precise_timestamp() -> float:
+    """High-resolution performance monitoring timestamp."""
+    return time.perf_counter()
