@@ -1,35 +1,35 @@
+import time
+import functools
 import logging
-from typing import Dict, Optional
 
-# Configure logger for wallet operations
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('wallet-utility-13')
+logger = logging.getLogger(__name__)
 
-class WalletManager:
-    """Handles core wallet logic and state persistence."""
+def retry_network_operation(max_retries=3, delay=1.0, backoff=2.0):
+    """Decorator for retrying network functions with exponential backoff."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            current_delay = delay
+            for attempt in range(1, max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    if attempt == max_retries:
+                        logger.error(f"Final attempt {attempt} failed: {e}")
+                        raise
+                    
+                    logger.warning(f"Attempt {attempt} failed, retrying in {current_delay}s...")
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+            return None
+        return wrapper
+    return decorator
 
-    def __init__(self, storage_path: str = "wallets.db"):
-        self.storage_path = storage_path
-        self.cache: Dict[str, str] = {}
-
-    def load_wallet(self, address: str) -> Optional[str]:
-        """Retrieve private key reference from cache or storage."""
-        if address in self.cache:
-            return self.cache[address]
-        
-        logger.info(f"Loading wallet address: {address}")
-        # Simulated retrieval logic
-        return self.cache.get(address)
-
-    def validate_address(self, address: str) -> bool:
-        """Basic structure validation for crypto addresses."""
-        return isinstance(address, str) and 26 <= len(address) <= 42
-
-    def cleanup_resources(self) -> None:
-        """Clear session data and reset internal state."""
-        logger.info("Clearing wallet session cache")
-        self.cache.clear()
-
-def get_manager(path: str = "wallets.db") -> WalletManager:
-    """Factory function for dependency injection."""
-    return WalletManager(storage_path=path)
+@retry_network_operation(max_retries=3)
+def fetch_balance(address: str):
+    """Mock network call to fetch wallet balance."""
+    # Simulated network instability
+    import random
+    if random.random() < 0.7:
+        raise ConnectionError("node synchronization timeout")
+    return "1.05 BTC"
