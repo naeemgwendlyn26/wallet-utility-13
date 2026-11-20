@@ -1,47 +1,42 @@
-import json
-import hashlib
+import re
 from typing import Dict, Any
 
+# regex for basic bitcoin address validation (p2pkh)
+ADDRESS_PATTERN = re.compile(r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$')
 
-class CryptoPayloadHandler:
-    """Utility class to validate, format, and hash crypto transaction payloads."""
+def validate_transaction(tx: Dict[str, Any]) -> bool:
+    """Validates transaction structure and fields before processing."""
+    required = {'address', 'amount', 'currency'}
+    
+    if not all(key in tx for key in required):
+        return False
+        
+    if not isinstance(tx['amount'], (int, float)) or tx['amount'] <= 0:
+        return False
+        
+    if not ADDRESS_PATTERN.match(tx['address']):
+        return False
+        
+    return True
 
-    def __init__(self, chain_id: int = 1):
-        self.chain_id = chain_id
+def run_processor(tx_queue: list):
+    """Main processing loop with integrated input validation."""
+    processed_count = 0
+    
+    for tx in tx_queue:
+        if not validate_transaction(tx):
+            print(f"Skipping invalid transaction: {tx}")
+            continue
+            
+        # process crypto asset movement
+        try:
+            print(f"Processing {tx['amount']} {tx['currency']} to {tx['address']}")
+            processed_count += 1
+        except Exception as e:
+            print(f"Execution error: {e}")
+            
+    return processed_count
 
-    def sanitize_address(self, address: str) -> str:
-        """Normalizes an Ethereum-style hex address to lower-case with 0x prefix."""
-        cleaned = address.strip().lower()
-        if not cleaned.startswith("0x"):
-            cleaned = "0x" + cleaned
-        if len(cleaned) != 42:
-            raise ValueError(f"Invalid address length: {len(cleaned)}")
-        return cleaned
-
-    def parse_transaction(self, raw_tx: Dict[str, Any]) -> Dict[str, Any]:
-        """Parses raw transaction dictionary and validates required fields."""
-        required = ["to", "value", "nonce"]
-        missing = [field for field in required if field not in raw_tx]
-        if missing:
-            raise KeyError(f"Missing transaction fields: {', '.join(missing)}")
-
-        to_addr = self.sanitize_address(str(raw_tx["to"]))
-        value = int(raw_tx["value"])
-        nonce = int(raw_tx["nonce"])
-        gas_limit = int(raw_tx.get("gas_limit", 21000))
-        gas_price = int(raw_tx.get("gas_price", 20000000000))
-
-        return {
-            "chain_id": self.chain_id,
-            "to": to_addr,
-            "value": value,
-            "nonce": nonce,
-            "gas_limit": gas_limit,
-            "gas_price": gas_price,
-            "data": str(raw_tx.get("data", "0x")),
-        }
-
-    def compute_payload_hash(self, parsed_tx: Dict[str, Any]) -> str:
-        """Generates SHA-256 hash of deterministic transaction payload JSON."""
-        tx_bytes = json.dumps(parsed_tx, sort_keys=True).encode("utf-8")
-        return hashlib.sha256(tx_bytes).hexdigest()
+if __name__ == "__main__":
+    data = [{'address': '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa', 'amount': 0.1, 'currency': 'BTC'}]
+    run_processor(data)
