@@ -1,45 +1,22 @@
 import re
-from typing import Optional
 
-class ValidationError(Exception):
-    """Base exception for address validation failures."""
-    pass
+# Regex for standard EVM-compatible addresses
+ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
 
-def validate_crypto_address(address: str, currency: str = "BTC") -> bool:
-    """
-    Validates cryptocurrency address formats with edge case handling.
-    """
+def validate_address(address: str) -> bool:
+    """Checks if a string is a valid hexadecimal crypto address."""
     if not isinstance(address, str):
-        raise ValidationError("Address must be a string")
-    
-    if not address or len(address) < 26 or len(address) > 42:
-        raise ValidationError("Invalid address length")
+        return False
+    return bool(ADDRESS_PATTERN.match(address))
 
-    # Currency specific regex patterns
-    patterns = {
-        "BTC": r"^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$",
-        "ETH": r"^0x[a-fA-F0-9]{40}$"
-    }
-
-    pattern = patterns.get(currency.upper())
-    if not pattern:
-        raise ValidationError(f"Unsupported currency: {currency}")
-
+def validate_amount(amount: float) -> bool:
+    """Ensures transaction amount is positive and not NaN."""
     try:
-        if not re.match(pattern, address):
-            raise ValidationError(f"Malformed {currency} address format")
-    except re.error as e:
-        raise ValidationError(f"Regex engine error: {str(e)}")
+        val = float(amount)
+        return val > 0
+    except (ValueError, TypeError):
+        return False
 
-    return True
-
-def sanitize_input(data: Optional[str]) -> str:
-    """
-    Safely cleans input strings to prevent injection.
-    """
-    if data is None:
-        return ""
-    
-    # Remove non-alphanumeric chars except basic punctuation
-    sanitized = re.sub(r'[^a-zA-Z0-9]', '', data)
-    return sanitized.strip()
+def sanitize_input(data: str) -> str:
+    """Strips whitespace and converts to lowercase for consistency."""
+    return data.strip().lower() if isinstance(data, str) else ""
