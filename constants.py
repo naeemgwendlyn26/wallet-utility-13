@@ -1,30 +1,34 @@
-from typing import Final
+from typing import Dict, Final
 
-# Network identifiers for chain interaction
-MAINNET_CHAIN_ID: Final[int] = 1
-TESTNET_CHAIN_ID: Final[int] = 11155111
+# Crypto currency network identifiers and precision settings
+NETWORK_PRECISION: Final[Dict[str, int]] = {
+    "BTC": 8,
+    "ETH": 18,
+    "USDT": 6,
+    "USDC": 6,
+    "SOL": 9
+}
 
-# Precision settings for wallet operations
-WEI_PER_ETH: Final[int] = 10**18
-DEFAULT_GAS_LIMIT: Final[int] = 21000
+# Standardized API endpoint suffixes
+ENDPOINT_MAP: Final[Dict[str, str]] = {
+    "v1": "/api/v1/public",
+    "v2": "/api/v2/private",
+    "stream": "/ws/v1/market"
+}
 
-# Timeouts and performance thresholds
-REQUEST_TIMEOUT_SECONDS: Final[int] = 10
-MAX_RETRIES: Final[int] = 3
-CACHE_EXPIRY_SECONDS: Final[int] = 300
+# Transaction status constants
+STATUS_PENDING: Final[str] = "pending"
+STATUS_CONFIRMED: Final[str] = "confirmed"
+STATUS_FAILED: Final[str] = "failed"
 
-# Supported assets
-SUPPORTED_TOKENS: Final[tuple[str, ...]] = (
-    'ETH',
-    'USDT',
-    'USDC',
-    'WBTC'
-)
+# Default network timeout in seconds
+DEFAULT_TIMEOUT: Final[int] = 30
 
-# Validation bounds
-MIN_TX_VALUE: Final[float] = 0.0001
-MAX_TX_VALUE: Final[float] = 1000.0
+def get_precision(symbol: str) -> int:
+    """Return decimal precision for a given ticker symbol."""
+    return NETWORK_PRECISION.get(symbol.upper(), 8)
 
-# Batch configuration
-BATCH_PROCESS_SIZE: Final[int] = 50
-THREAD_POOL_WORKERS: Final[int] = 4
+def is_valid_status(status: str) -> bool:
+    """Validate if the status string matches expected crypto states."""
+    valid_statuses = [STATUS_PENDING, STATUS_CONFIRMED, STATUS_FAILED]
+    return status.lower() in valid_statuses
