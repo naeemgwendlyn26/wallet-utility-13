@@ -3,30 +3,37 @@ import functools
 import time
 from typing import Callable, Any
 
-# Configure performance-optimized logging for wallet transactions
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger('wallet-utility-13')
+# Configure structured logging for high-frequency crypto wallet operations
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+logger = logging.getLogger("wallet-utility-13")
 
-def performance_monitor(func: Callable) -> Callable:
-    """
-    Decorator for measuring execution time of critical wallet operations
-    Reduces overhead by using local time references and conditional logging
-    """
+# Cache dictionary for performance optimization of redundant calculations
+_execution_cache = {}
+
+def memoize_performance(func: Callable) -> Callable:
+    """Decorator to cache function results and reduce overhead in core logic."""
     @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        start_time = time.perf_counter()
-        result = func(*args, **kwargs)
-        end_time = time.perf_counter()
+    def wrapper(*args, **kwargs) -> Any:
+        key = (func.__name__, args, frozenset(kwargs.items()))
+        if key in _execution_cache:
+            return _execution_cache[key]
         
-        duration = end_time - start_time
-        if duration > 0.5:
-            logger.warning(f'High latency in {func.__name__}: {duration:.4f}s')
+        result = func(*args, **kwargs)
+        _execution_cache[key] = result
         return result
     return wrapper
 
-def log_transaction(tx_id: str, status: str) -> None:
-    """
-    Optimized logging for frequent blockchain transaction updates
-    Uses f-strings for faster string formatting
-    """
-    logger.info(f'tx_update:{tx_id}:{status}')
+def log_execution_time(func: Callable) -> Callable:
+    """Decorator for monitoring throughput of critical wallet operations."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs) -> Any:
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        duration = time.perf_counter() - start_time
+        if duration > 0.1:
+            logger.warning(f"High latency detected in {func.__name__}: {duration:.4f}s")
+        return result
+    return wrapper
