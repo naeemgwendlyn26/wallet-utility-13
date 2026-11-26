@@ -1,40 +1,27 @@
-import functools
-from typing import Callable, Any, Dict
-import time
+import logging
+from typing import Optional, Dict, Any
 
-# Cache for address validation results to reduce repetitive regex/checksum cycles
-_validation_cache: Dict[str, bool] = {}
+def format_address(address: str) -> str:
+    """Truncates long crypto addresses for UI display."""
+    if len(address) <= 12:
+        return address
+    return f"{address[:6]}...{address[-4:]}"
 
-CACHE_SIZE_LIMIT = 1000
+def validate_transaction_amount(amount: float) -> bool:
+    """Ensures transaction amounts are non-negative."""
+    return amount >= 0
 
-def memoize_validation(func: Callable) -> Callable:
-    """Decorator to cache crypto address validation results."""
-    @functools.wraps(func)
-    def wrapper(address: str, *args, **kwargs) -> bool:
-        if address in _validation_cache:
-            return _validation_cache[address]
-        
-        if len(_validation_cache) >= CACHE_SIZE_LIMIT:
-            _validation_cache.clear()
-            
-        result = func(address, *args, **kwargs)
-        _validation_cache[address] = result
-        return result
-    return wrapper
+def get_logger(name: str) -> logging.Logger:
+    """Standardized logger configuration for wallet modules."""
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+    return logger
 
-@memoize_validation
-def validate_address_format(address: str, network: str = 'eth') -> bool:
-    """Simulates expensive checksum validation logic."""
-    # Placeholder for actual crypto regex/checksum logic
-    if not address or len(address) < 20:
-        return False
-    return True
-
-def batch_process_addresses(addresses: list, func: Callable) -> list:
-    """Optimized batch processor using list comprehensions."""
-    return [func(addr) for addr in addresses]
-
-# Utility for timestamping high-frequency transaction logs
-def get_precise_timestamp() -> float:
-    """High-resolution performance monitoring timestamp."""
-    return time.perf_counter()
+def sanitize_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Removes null values from transaction dictionaries."""
+    return {k: v for k, v in payload.items() if v is not None}
