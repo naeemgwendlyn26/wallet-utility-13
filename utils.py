@@ -1,28 +1,37 @@
-import time
 import functools
-import logging
-from typing import Callable, Any
+from typing import Callable, Any, Dict
 
-logger = logging.getLogger(__name__)
+# Cache for compute-intensive cryptographic address derivations
+_ADDRESS_CACHE: Dict[str, str] = {}
 
-def retry_network_call(max_retries: int = 3, delay: float = 1.0, backoff: float = 2.0):
-    """Decorator to retry network calls on failure with exponential backoff."""
-    def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            retries = 0
-            current_delay = delay
-            while retries < max_retries:
-                try:
-                    return func(*args, **kwargs)
-                except (ConnectionError, TimeoutError) as e:
-                    retries += 1
-                    if retries == max_retries:
-                        logger.error(f"Final attempt failed for {func.__name__}: {e}")
-                        raise
-                    logger.warning(f"Retry {retries}/{max_retries} for {func.__name__} after error: {e}")
-                    time.sleep(current_delay)
-                    current_delay *= backoff
-            return None
-        return wrapper
-    return decorator
+def memoize_address_derivation(func: Callable) -> Callable:
+    """
+    Decorator to cache wallet address derivation results.
+    Prevents redundant expensive hashing operations.
+    """
+    @functools.wraps(func)
+    def wrapper(pubkey: str, *args: Any, **kwargs: Any) -> str:
+        if pubkey not in _ADDRESS_CACHE:
+            _ADDRESS_CACHE[pubkey] = func(pubkey, *args, **kwargs)
+        return _ADDRESS_CACHE[pubkey]
+    return wrapper
+
+@memoize_address_derivation
+def derive_wallet_address(pubkey: str) -> str:
+    """
+    Simulates a CPU-heavy cryptographic hashing operation.
+    """
+    # Simulated complex derivation logic
+    import hashlib
+    return hashlib.sha256(pubkey.encode()).hexdigest()
+
+def clear_cache() -> None:
+    """
+    Clears memory cache to prevent stale data bloat.
+    """
+    _ADDRESS_CACHE.clear()
+
+if __name__ == "__main__":
+    # Example usage for wallet-utility-13
+    addr = derive_wallet_address("pubkey_example_0x123")
+    print(f"Generated: {addr}")
