@@ -3,23 +3,28 @@ class WalletError(Exception):
     pass
 
 class ValidationError(WalletError):
-    """Raised when input data fails schema validation."""
+    """Exception raised for invalid input data."""
     pass
 
 def validate_address(address: str) -> bool:
-    """Basic length and hex validation for crypto addresses."""
-    if not isinstance(address, str):
-        raise ValidationError("Address must be a string.")
-    if len(address) < 26 or len(address) > 35:
-        raise ValidationError("Invalid address length.")
-    if not address.isalnum():
-        raise ValidationError("Address contains invalid characters.")
+    """Validates cryptocurrency address format."""
+    if not isinstance(address, str) or len(address) < 26 or len(address) > 35:
+        raise ValidationError(f"Invalid address format: {address}")
     return True
 
 def validate_amount(amount: float) -> bool:
     """Ensures transaction amount is positive and non-zero."""
-    if not isinstance(amount, (int, float)):
-        raise ValidationError("Amount must be numeric.")
     if amount <= 0:
-        raise ValidationError("Amount must be greater than zero.")
+        raise ValidationError(f"Invalid amount: {amount}. Must be greater than zero.")
+    return True
+
+def validate_payload(data: dict):
+    """Main validation gate for incoming requests."""
+    required = ['address', 'amount', 'currency']
+    for field in required:
+        if field not in data:
+            raise ValidationError(f"Missing required field: {field}")
+    
+    validate_address(data['address'])
+    validate_amount(data['amount'])
     return True
